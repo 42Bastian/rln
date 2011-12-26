@@ -2381,7 +2381,7 @@ void display_help(void)
 	printf("   -s                      output only global symbols\n");
 	printf("   -v                      set verbose mode\n");
 	printf("   -z                      suppress banner\n");
-	printf("\n\n");
+	printf("\n");
 }
 
 
@@ -2427,121 +2427,122 @@ int get_endianess(void)
 //
 int main(int argc, char * argv[])
 {
-   char * s = NULL;                                          // String pointer for "getenv"
-   struct HREC * utemp;                                      // Temporary hash record pointer 
-   struct OHEADER * header;                                  // Pointer to output header structure
+	char * s = NULL;                                          // String pointer for "getenv"
+	struct HREC * utemp;                                      // Temporary hash record pointer 
+	struct OHEADER * header;                                  // Pointer to output header structure
 
-   endian = get_endianess();                                // Get processor endianess
-   cmdlnexec = argv[0];                                     // Obtain executable name
-   s = getenv("RLNPATH");
+	endian = get_endianess();                                // Get processor endianess
+	cmdlnexec = argv[0];                                     // Obtain executable name
+	s = getenv("RLNPATH");
 
-   if(s)                                                    // Attempt to obtain env variable
-      strcpy(libdir, s);                                    // Store it if found
+	if (s)                                                   // Attempt to obtain env variable
+		strcpy(libdir, s);                                    // Store it if found
 
-   if (doargs(argc, argv))
-   {                                 // Parse the command line
-      errflag = 1;
-	   rln_exit();
-   }
+	if (doargs(argc, argv))
+	{                                 // Parse the command line
+		errflag = 1;
+		rln_exit();
+	}
 
-   if (!zflag && !vflag)
-   {
-      display_version();                                    // Display version information
-      versflag = 1;	                                       // We've dumped the version banner 
-   }
+	if (!zflag && !vflag)
+	{
+		display_version();                                    // Display version information
+		versflag = 1;	                                       // We've dumped the version banner 
+	}
 
-   if (flush_handles())
-   {                                    // Process in specified files/objects
-      errflag = 1;
-      rln_exit();
-   }
+	if (flush_handles())
+	{                                    // Process in specified files/objects
+		errflag = 1;
+		rln_exit();
+	}
 
-   if (dolist())
-   {                                           // Remove elements from unresolved list
-      errflag = 1;
-      rln_exit();
-   }
+	if (dolist())
+	{                                           // Remove elements from unresolved list
+		errflag = 1;
+		rln_exit();
+	}
 
-   if (olist == NULL)
-   {                                      // Check that there is something to link
-      printf("No object files to link.\n\n");
-      errflag = 1;
-      rln_exit();
-   }
+	if (olist == NULL)
+	{                                      // Check that there is something to link
+//		printf("No object files to link.\n\n");
+//		errflag = 1;
+		display_help();
+		rln_exit();
+	}
 
-   if (unresolved != NULL)
-   {                                 // Report unresolved externals
-      printf("UNRESOLVED SYMBOLS\n");
+	if (unresolved != NULL)
+	{                                 // Report unresolved externals
+		printf("UNRESOLVED SYMBOLS\n");
 
-      if (uflag < 2)
-      {                                       // Don't list them if two -u's or more 
-         utemp = unresolved;
+		if (uflag < 2)
+		{                                       // Don't list them if two -u's or more 
+			utemp = unresolved;
 
-         while (utemp != NULL)
-         {
-            printf("\t%s (",utemp->h_sym);
-            put_name(utemp->h_ofile);
-            printf(")\n");
-            utemp = utemp->h_next;
-         }
-      }
+			while (utemp != NULL)
+			{
+			printf("\t%s (",utemp->h_sym);
+			put_name(utemp->h_ofile);
+			printf(")\n");
+			utemp = utemp->h_next;
+			}
+		}
 
-      if (!uflag)
-      {
-         errflag = 1;
-         rln_exit();
-      }
-   }
+		if (!uflag)
+		{
+			errflag = 1;
+			rln_exit();
+		}
+	}
 
-   if ((header = make_ofile()) == NULL)
-   {                    // Make one output file from input objs
-      errflag = 1;
-      rln_exit();
-   }
+	if ((header = make_ofile()) == NULL)
+	{                    // Make one output file from input objs
+		errflag = 1;
+		rln_exit();
+	}
 
-   if (pflag)
-   {                                              // Partial linking
-      printf("TO DO:Partial linking\n");
-      errflag = 1;
-   }
-   else if (!aflag)
-   {                                     // Relocatable linking
-      printf("TO DO:Relocatable linking\n");
-      errflag = 1;
-   }
-   else
-   {                                                 // Absolute linking
-      if (vflag)
-      {
-         printf("Absolute linking ");
+	if (pflag)
+	{                                              // Partial linking
+		printf("TO DO:Partial linking\n");
+		errflag = 1;
+	}
+	else if (!aflag)
+	{                                     // Relocatable linking
+		printf("TO DO:Relocatable linking\n");
+		errflag = 1;
+	}
+	else
+	{                                                 // Absolute linking
+		if (vflag)
+		{
+			printf("Absolute linking ");
 
-         if (cflag)
-           printf("(COF)\n"); 
-         else
-           printf("(ABS)\n");
-      }
+			if (cflag)
+			printf("(COF)\n"); 
+			else
+			printf("(ABS)\n");
+		}
 
-      if (vflag > 1)
-        printf("Header magic is 0x%04X\n", (unsigned int)header->magic);
+		if (vflag > 1)
+		printf("Header magic is 0x%04X\n", (unsigned int)header->magic);
 
-      if (write_ofile(header))
-        errflag = 1;
-   }
+		if (write_ofile(header))
+		errflag = 1;
+	}
 
-   if (mflag)                                                // Display the loaded symbols map
-      if (write_map(header))
-        errflag = 1;
+	if (mflag)                                                // Display the loaded symbols map
+		if (write_map(header))
+			errflag = 1;
 
-   if (vflag)
-   {                                             // Display segment size summary
-      printf("\n");
-      printf("+---------+----------+----------+----------+\n");
-      printf("| Segment |     TEXT |     DATA |      BSS |\n");
-      printf("| Sizes   |----------+----------+----------|\n");
-      printf("| (Hex)   | %8X | %8X | %8X |\n", (unsigned int)header->tsize, (unsigned int)header->dsize, (unsigned int)header->bsize);
-      printf("+---------+----------+----------+----------+\n\n");
-   }
+	if (vflag)
+	{                                             // Display segment size summary
+		printf("\n");
+		printf("+---------+----------+----------+----------+\n");
+		printf("| Segment |     TEXT |     DATA |      BSS |\n");
+		printf("| Sizes   |----------+----------+----------|\n");
+		printf("| (Hex)   | %8X | %8X | %8X |\n", (unsigned int)header->tsize, (unsigned int)header->dsize, (unsigned int)header->bsize);
+		printf("+---------+----------+----------+----------+\n\n");
+	}
 
-   free(header);                                            // Free allocated memory
-   rln_exit();                                              // Perform application exit
+	free(header);                                            // Free allocated memory
+	rln_exit();                                              // Perform application exit
 }
