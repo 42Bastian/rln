@@ -1861,7 +1861,7 @@ int doobject(char *fname, int fd, char *ptr) {
          return(1);
       }
 
-      strcpy(obj_fname[obj_index], fname);
+      strcpy(obj_fname[obj_index], path_tail(fname));		// SCPCD : get the name of the file instead of all pathname
       obj_segsize[obj_index][0] = (getlong(ptr + 4) + secalign) & ~secalign;
       obj_segsize[obj_index][1] = (getlong(ptr + 8) + secalign) & ~secalign;
       obj_segsize[obj_index][2] = (getlong(ptr + 12) + secalign) & ~secalign;
