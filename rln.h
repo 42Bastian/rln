@@ -1,15 +1,15 @@
-///////////////////////////////////////////////////////////////////////////////
+//
 // RLN - Reboot's Linker for the Atari Jaguar Console System
 // RLN.H - Application Header
 // Copyright (C) 199x Allan K. Pratt, 2011 Reboot & Friends
+//
 
 #ifndef __RLH_H__
 #define __RLH_H__
 
-// --- Required Include Files ----------------------------------------------------------------------
+// Required Include Files 
 
-
-// --- Macro Definitions ---------------------------------------------------------------------------
+// Macro Definitions 
 
 // Requirements for Windows Compilation
 
@@ -50,17 +50,17 @@
 #include <unistd.h>
 #endif
 
-#define MAJOR        1                                      // Major version number
-#define MINOR        0                                      // Minor version number
-#define PATCH        1                                      // Patch release number
+#define MAJOR        1                          // Major version number
+#define MINOR        0                          // Minor version number
+#define PATCH        2                          // Patch release number
 
 #ifdef WIN32
-#define PLATFORM     "Win32"                                // Release platform - Windows
+#define PLATFORM     "Win32"                    // Release platform - Windows
 #else 
 #ifdef __GCCUNIX__
-#define PLATFORM     "OSX/Linux"                            // Release platform - MAC OSX or Linux
+#define PLATFORM     "OSX/Linux"                // Release platform - MAC OSX or Linux
 #else
-#define PLATFORM     "Unknown"                              // Release platform - Not Specified 
+#define PLATFORM     "Unknown"                  // Release platform - Not Specified 
 #endif
 #endif
 
@@ -75,44 +75,46 @@
 // Macro to swap the 16-bit words of a 32-bit integer
 #define _SWAPWORD(x) (((unsigned)(x) >> 16) | ((unsigned)(x) << 16)) 
 
-#define FARGSIZE     1024                                   // Number of chars in filename argument
-#define FNLEN        1024                                   // Size of a file name 
-#define NHANDLES     256                                    // Number of open file handles at once 
-#define OST_BLOCK    0x400000                               // Output symbol table block (4MB)
-#define DSTSEG_D     1                                      // Include file destination seg (DATA)
-#define DSTSEG_T     2                                      // Include file destination seg (TEXT)
-#define MAXARGS 256                                         // Max number of args in a command file
+#define FARGSIZE     1024                       // Number of chars in filename argument
+#define FNLEN        1024                       // Size of a file name 
+#define NHANDLES     256                        // Number of open file handles at once 
+#define OST_BLOCK    0x400000                   // Output symbol table block (4MB)
+#define DSTSEG_D     1                          // Include file destination seg (DATA)
+#define DSTSEG_T     2                          // Include file destination seg (TEXT)
+#define MAXARGS 256                             // Max number of args in a command file
 
-// --- Headers -------------------------------------------------------------------------------------
-// Most of these structures reflect the actual format of the object in question, on a 68000: char 
-// means one byte, int means two bytes, long means four.  If the host machine doesn't have this 
-// same format (like a VAX), you will have to read the file into a buffer and stuff the values into 
-// the structure (see slongio.c).
+// Headers
+
+// Most of these structures reflect the actual format of the object in
+// question, on a 68000: char means one byte, int means two bytes, long means
+// four. If the host machine doesn't have this same format (like a VAX), you
+// will have to read the file into a buffer and stuff the values into the
+// structure (see slongio.c).
 
 struct OHEADER
 {
-   long magic;			                                       // 0x0107 for .o, 0x601b for abs
+   long magic;			                        // 0x0107 for .o, 0x601b for abs
    long tsize;
    long dsize;
    long bsize;
    long ssize;
    union {
-      struct {			                                       // For .o 
-         long tsize;                                        // Text relocation size
-         long dsize;                                        // Data relocation size
+      struct {			                        // For .o 
+         long tsize;                            // Text relocation size
+         long dsize;                            // Data relocation size
          char reserved[12];
       } reloc;
-      struct {			                                       // For .abs 
-         long stksize;		                                 // Unused 
-         long tstart;                                       // Start of TEXT 
-         long rbflag;                                        // -1 if no fixups at all 
-         long dstart;                                       // Start of DATA 
-         long bstart;                                       // Start of BSS
+      struct {			                        // For .abs 
+         long stksize;		                    // Unused 
+         long tstart;                           // Start of TEXT 
+         long rbflag;                           // -1 if no fixups at all 
+         long dstart;                           // Start of DATA 
+         long bstart;                           // Start of BSS
       } abs;
    } absrel;
-   char *ostbase;                                           // Base of output symbol table 
-   long fsize;                                              // Length of fixups
-   char *fixups;                                            // Start of fixups 
+   char * ostbase;                              // Base of output symbol table 
+   long fsize;                                  // Length of fixups
+   char * fixups;                               // Start of fixups 
 };
 
 #define new_oheader()   (struct OHEADER *)malloc((long)sizeof(struct OHEADER))
@@ -125,23 +127,23 @@ struct ARHEADER
    char a_gid;
    int a_fimode;
    long a_fsize;
-   int reserved;                                            // Two bytes zeroes btw header & file 
+   int reserved;                                // Two bytes zeroes btw header & file 
 };
 
 #define new_arheader()  (struct ARHEADER *)malloc((long)sizeof(struct ARHEADER))
 
-// --- Object File Structure and Related Items -----------------------------------------------------
+// Object File Structure and Related Items
 
 struct OFILE
 {
-   char o_name[FNLEN];                                      // Fixed-length names
-   char o_arname[FNLEN];                                    // Name of archive this is from
-   struct OFILE *o_next;                                    // Next object file
-   long o_tbase, o_dbase, o_bbase;                          // Computed bases for this ofile
-   int o_symstart;                                          // First sym in image is nth in out
-   int o_flags;                                             // Flags (see O_*)
-   struct OHEADER o_header;                                 // Header of this file
-   char *o_image;                                           // Image of this file
+   char o_name[FNLEN];                          // Fixed-length names
+   char o_arname[FNLEN];                        // Name of archive this is from
+   struct OFILE *o_next;                        // Next object file
+   long o_tbase, o_dbase, o_bbase;              // Computed bases for this ofile
+   int o_symstart;                              // First sym in image is nth in out
+   int o_flags;                                 // Flags (see O_*)
+   struct OHEADER o_header;                     // Header of this file
+   char *o_image;                               // Image of this file
 };
 
 #define new_ofile()  (struct OFILE *)malloc((long)sizeof(struct OFILE))
@@ -149,18 +151,19 @@ struct OFILE
 // Flags in an Object File's o_flags field
 // O_USED: means this ofile is used or is on the command line or in a -x 
 #define O_USED	      0x0001
-#define O_ARCHIVE    0x0002                                 // This is a dummy archive entry
+#define O_ARCHIVE    0x0002                     // This is a dummy archive entry
 
-// --- Symbol Record -------------------------------------------------------------------------------
+// Symbol Record
 
-// SYMREC: Used by builddir for the lists of exports and imports, and by the linker for the output
-// symbol table (that's why there are type and value fields, unused in builddir)
+// SYMREC: Used by builddir for the lists of exports and imports, and by the
+// linker for the output symbol table (that's why there are type and value
+// fields, unused in builddir)
 
-#define SYMLEN       100                                    // Symbol name size (incl null)
+#define SYMLEN       100                        // Symbol name size (incl null)
 
 struct SYMREC
 {
-   char s_name[SYMLEN];                                     // Including null terminator 
+   char s_name[SYMLEN];                         // Including null terminator 
    int s_type;
    long s_value;
    struct SYMREC *s_next;
@@ -168,23 +171,24 @@ struct SYMREC
 
 #define new_symrec() (struct SYMREC *)malloc((long)sizeof(struct SYMREC))
 
-// --- Hash Record ---------------------------------------------------------------------------------
+// Hash Record
 
-// HREC: One item in a hash bucket, including a link to the next item. Commons and Globals share a 
-// hash table, but their value fields are interpreted differently.  
+// HREC: One item in a hash bucket, including a link to the next item. Commons
+// and Globals share a hash table, but their value fields are interpreted
+// differently.  
 
 struct HREC
 {
    char h_sym[SYMLEN];
-   struct HREC *h_next;
-   struct OFILE *h_ofile;
+   struct HREC * h_next;
+   struct OFILE * h_ofile;
    long h_value;
    int h_type;
 };
 
 #define new_hrec()   (struct HREC *)malloc((long)sizeof(struct HREC))
 
-#define NBUCKETS     1024                                   // Number of hash buckets
+#define NBUCKETS     1024                       // Number of hash buckets
 
 // Bit definitions for the type field of a symbol.
 //
@@ -212,11 +216,11 @@ struct HREC
 #define ABST_DATA       0x0400	/* data-based relocatable */
 #define ABST_TEXT       0x0200	/* text-based relocatable */
 #define ABST_BSS        0x0100	/* bss-based relocatable  */
-#define ABST_FILE       0x0080                                    // file symbol 
-#define ABST_ARCHIVE    0x0040                                    // only when FILE set: archive file or no 
-#define ABST_OST        0x0001                                    // private: "symbol is in ost": see above 
+#define ABST_FILE       0x0080                  // file symbol 
+#define ABST_ARCHIVE    0x0040                  // only when FILE set: archive file or no 
+#define ABST_OST        0x0001                  // private: "symbol is in ost": see above 
 #define T_COMMON	(T_GLOBAL | T_EXTERN)
-#define T_SEG		(T_DATA | T_TEXT | T_BSS)                 // segment bits 
+#define T_SEG		(T_DATA | T_TEXT | T_BSS)   // segment bits 
 
 // Symbol Table - Type Definitions
 
@@ -238,10 +242,10 @@ struct HREC
 // symcopy remaining as it is (copies two longs plus a null)
 
 #define symcmp(a,b) ((*(long *)(a) == *(long *)(b)) && \
-		              (*(long *)((a) + sizeof(long)) == \
-		              *(long *)((b) + sizeof(long))))
+					(*(long *)((a) + sizeof(long)) == \
+					*(long *)((b) + sizeof(long))))
 
-// --- Function Prototypes -------------------------------------------------------------------------
+// Function Prototypes
 
 int doargs(int, char *[]);
 char *make_string(char *);
