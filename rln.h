@@ -93,7 +93,7 @@
 
 struct OHEADER
 {
-   long magic;			                        // 0x0107 for .o, 0x601b for abs
+   long magic;			                        // $0107 for .o, $601B for abs
    long tsize;
    long dsize;
    long bsize;
@@ -138,12 +138,12 @@ struct OFILE
 {
    char o_name[FNLEN];                          // Fixed-length names
    char o_arname[FNLEN];                        // Name of archive this is from
-   struct OFILE *o_next;                        // Next object file
+   struct OFILE * o_next;                       // Next object file
    long o_tbase, o_dbase, o_bbase;              // Computed bases for this ofile
    int o_symstart;                              // First sym in image is nth in out
    int o_flags;                                 // Flags (see O_*)
    struct OHEADER o_header;                     // Header of this file
-   char *o_image;                               // Image of this file
+   char * o_image;                              // Image of this file
 };
 
 #define new_ofile()  (struct OFILE *)malloc((long)sizeof(struct OFILE))
@@ -248,7 +248,7 @@ struct HREC
 // Function Prototypes
 
 int doargs(int, char *[]);
-char *make_string(char *);
+char * make_string(char *);
 void put_name(struct OFILE *);
 int flush_handles(void);
 void symcopy(char *, char *);
@@ -257,7 +257,7 @@ int add_fixup(long);
 void display_help(void);
 void display_version(void);
 int pladd(char *, char *);
-char *path_tail(char *);
+char * path_tail(char *);
 int dolist(void);
 int segmentpad(FILE *, long, int);
 int ost_lookup(char *);
