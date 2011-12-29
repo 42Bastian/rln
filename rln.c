@@ -20,8 +20,9 @@ unsigned oflag = 0;                     // Output filename specified
 unsigned rflag = 0;                     // Segment alignment size flag
 unsigned sflag = 0;                     // Output only global symbols
 unsigned vflag = 0;                     // Verbose flag
+unsigned wflag = 0;                     // Show warnings flag
 unsigned zflag = 0;                     // Suppress banner flag
-unsigned pflag, uflag, wflag = 1;           // Unimplemented flags
+unsigned pflag, uflag;                  // Unimplemented flags
 unsigned hd = 0;                        // Index of next file handle to fill
 unsigned secalign = 7;                  // Section Alignment (8=phrase)
 unsigned tbase = 0;                     // TEXT base address
@@ -503,23 +504,11 @@ int ost_add(char * name, int type, long value)
 		}
 	}
 
-#if 0
-if ((strcmp(name, "U235SE_playback_rate") == 0)
-	|| (strcmp(name, "U235SE_playback_period") == 0))
-{
-	printf("%s found: ost[0]=$%08X, ost[1]=$%08X, ost[2]=$%08X\n", name, getlong(ost_ptr), type, value);
-}
-#endif
 	// If this is a debug symbol and the include debug symbol flag (-g) is not
 	// set then do nothing
 	if ((type & 0xF0000000) && !gflag)
 	{
 		// Do nothing
-#if 0
-if ((strcmp(name, "U235SE_playback_rate") == 0)
-	|| (strcmp(name, "U235SE_playback_period") == 0))
-	printf("%s was IGNORED!\n", name);
-#endif
 	}
 	else
 	{
@@ -532,11 +521,6 @@ if ((strcmp(name, "U235SE_playback_rate") == 0)
 		if (((ostresult != -1) && bflag && !(type & 0x01000000))
 			|| ((ostresult != -1) && gflag && (type & 0xF0000000)) || (ostresult == -1))
 		{
-#if 0
-if ((strcmp(name, "U235SE_playback_rate") == 0)
-	|| (strcmp(name, "U235SE_playback_period") == 0))
-	printf("%s was added to the ost.\n", name);
-#endif
 			if ((type & 0xF0000000) == 0x40000000)
 				putlong(ost_ptr, 0x00000000);                   // Zero string table offset for dbg line
 			else
@@ -577,17 +561,7 @@ int ost_lookup(char * sym)
 	for(i=0; i<ost_index; i++)
 	{
 		if (strcmp(oststr + stro, sym) == 0)
-		{
-#if 0
-			// Shamus: More debug stuffs...
-			if (vflag > 1)
-			{
-				printf("ost_lookup(): Found @ %i (looking for '%s', found '%s')\n", i, sym, oststr + stro);
-			}
-#endif
-
 			return i + 1;
-		}
 
 		stro += strlen(oststr + stro) + 1;
 	}
@@ -609,7 +583,8 @@ int dounresolved(void)
 	{
 		if (ost_add(hptr->h_sym, T_EXT, 0L) == -1)
 			return 1;
-printf("dounresolved(): added %s\n",hptr->h_sym);
+
+//printf("dounresolved(): added %s\n",hptr->h_sym);
 		htemp = hptr->h_next;                   // Temporarily get ptr to next record
 		free(hptr);                             // Free current record
 		hptr = htemp;                           // Make next record ptr, current
@@ -737,8 +712,6 @@ int reloc_segment(struct OFILE * ofile, int flag)
 			olddata = newdata = 0;              // Initialise old and new segment data
 			ssidx = ost_lookup(sym);
 			newdata = getlong(ost + ((ssidx - 1) * 12) + 8);
-//nope, false lead. -0 & -2 give bad results
-//			newdata = getlong(ost + ((ssidx - 2) * 12) + 8);
 		}
 
 		// Obtain the existing long word segment data and flip words if the
@@ -2500,278 +2473,285 @@ int docmdfile(char * fname)
 //
 int doargs(int argc, char * argv[])
 {
-   int i = 1;                                               // Iterator
-   int c;                                                   // Command line character
-   char * ifile, * isym;	                                 // File name and symbol name for -i
+	int i = 1;                                               // Iterator
+	int c;                                                   // Command line character
+	char * ifile, * isym;	                                 // File name and symbol name for -i
 
-   while (i < argc)
-   {                                        // Parse through option switches & files
-      if (argv[i][0] == '-')
-	  {                               // Process command line switches
-         if (!argv[i][1])
-		 {
-            printf("Illegal option argument: %s\n\n", argv[i]);
-            display_help();
-		      return 1;
-         }
+	while (i < argc)
+	{                                        // Parse through option switches & files
+		if (argv[i][0] == '-')
+		{                               // Process command line switches
+			if (!argv[i][1])
+			{
+				printf("Illegal option argument: %s\n\n", argv[i]);
+				display_help();
+				return 1;
+			}
 
-         c = argv[i++][1];                                  // Get next character in command line
+			c = argv[i++][1];                                  // Get next character in command line
 
-         switch (c)
-		 {                                        // Process command line switch
-            case '?':                                       // Display usage information
-            case 'h':
+			switch (c)
+			{                                        // Process command line switch
+			case '?':                                       // Display usage information
+			case 'h':
 			case 'H':
-               display_version();
-               display_help();
-               return 1;
-            case 'a':
+				display_version();
+				display_help();
+				return 1;
+			case 'a':
 			case 'A': 	                           // Set absolute linking on
-               if (aflag)
-				   warn('a', 1);
+				if (aflag)
+					warn('a', 1);
 
-			   if (i + 2 >= argc)
-			   {
-                  printf("Not enough arguments to -a\n");
-                  return 1;
-               }
+				if (i + 2 >= argc)
+				{
+					printf("Not enough arguments to -a\n");
+					return 1;
+				}
 
-               aflag = 1;                                   // Set abs link flag
-               // Segment order is TEXT, DATA, BSS
-               // Text segment can be 'r', 'x' or a value
-               ttype = 0;
+				aflag = 1;                                   // Set abs link flag
+				// Segment order is TEXT, DATA, BSS
+				// Text segment can be 'r', 'x' or a value
+				ttype = 0;
 
-			   if ((*argv[i] == 'r' || *argv[i] == 'R') && !argv[i][1])
-			   {
-                  ttype = -1;                               // TEXT segment is relocatable
-               }
-               else if ((*argv[i] == 'x' || *argv[i] == 'X'))
-			   {
-                  printf("Error in text-segment address: cannot be contiguous\n");
-                  return 1;
-               }
-               else if ((ttype = 0), getval(argv[i], &tval))
-			   {
-                  printf("Error in text-segment address: %s is not 'r', 'x' or an address.", argv[i]);
-                  return 1;
-               }
+				if ((*argv[i] == 'r' || *argv[i] == 'R') && !argv[i][1])
+				{
+					ttype = -1;                               // TEXT segment is relocatable
+				}
+				else if ((*argv[i] == 'x' || *argv[i] == 'X'))
+				{
+					printf("Error in text-segment address: cannot be contiguous\n");
+					return 1;
+				}
+				else if ((ttype = 0), getval(argv[i], &tval))
+				{
+					printf("Error in text-segment address: %s is not 'r', 'x' or an address.", argv[i]);
+					return 1;
+				}
 
-               i++;
-               // Data segment can be 'r', 'x' or a value
-               dtype = 0;
+				i++;
+				// Data segment can be 'r', 'x' or a value
+				dtype = 0;
 
-			   if ((*argv[i] == 'r' || *argv[i] == 'R') && !argv[i][1])
-			   {
-                  dtype = -1;                               // DATA segment is relocatable
-               }
-               else if ((*argv[i] == 'x' || *argv[i] == 'X'))
-			   {
-                  dtype = -2;                               // DATA follows TEXT
-               }
-               else if ((dtype = 0), getval(argv[i],&dval))
-			   {
-                  printf("Error in data-segment address: %s is not 'r', 'x' or an address.", argv[i]);
-                  return 1;
-               }
+				if ((*argv[i] == 'r' || *argv[i] == 'R') && !argv[i][1])
+				{
+					dtype = -1;                               // DATA segment is relocatable
+				}
+				else if ((*argv[i] == 'x' || *argv[i] == 'X'))
+				{
+					dtype = -2;                               // DATA follows TEXT
+				}
+				else if ((dtype = 0), getval(argv[i],&dval))
+				{
+					printf("Error in data-segment address: %s is not 'r', 'x' or an address.", argv[i]);
+					return 1;
+				}
 
-               i++;
-               btype = 0;
+				i++;
+				btype = 0;
 
-			   // BSS segment can be 'r', 'x' or a value
-               if ((*argv[i] == 'r' || *argv[i] == 'R') && !argv[i][1])
-			   {
-                  btype = -1;                               // BSS segment is relocatable
-               }
-               else if ((*argv[i] == 'x' || *argv[i] == 'X'))
-			   {
-                  btype = -3;                               // BSS follows DATA
-               }
-               else if ((btype = 0), getval(argv[i],&bval))
-			   {
-                  printf("Error in bss-segment address: %s is not 'r', 'x[td]', or an address.", argv[i]);
-                  return 1;
-               }
+				// BSS segment can be 'r', 'x' or a value
+				if ((*argv[i] == 'r' || *argv[i] == 'R') && !argv[i][1])
+				{
+					btype = -1;                               // BSS segment is relocatable
+				}
+				else if ((*argv[i] == 'x' || *argv[i] == 'X'))
+				{
+					btype = -3;                               // BSS follows DATA
+				}
+				else if ((btype = 0), getval(argv[i],&bval))
+				{
+					printf("Error in bss-segment address: %s is not 'r', 'x[td]', or an address.", argv[i]);
+					return 1;
+				}
 
-               i++;
-               break;
-            case 'b':
+				i++;
+				break;
+			case 'b':
 			case 'B':	                           // Don't remove muliply defined locals
-               if (bflag)
-				   warn('b', 1);
+				if (bflag)
+					warn('b', 1);
 
-			   bflag = 1;
-               break;
-            case 'c':
+				bflag = 1;
+				break;
+			case 'c':
 			case 'C':                             // Process a command file
-               if (i == argc)
-			   {
-                  printf("Not enough arguments to -c\n");
-                  return 1;
-               }
+				if (i == argc)
+				{
+					printf("Not enough arguments to -c\n");
+					return 1;
+				}
 
-               if (docmdfile(argv[i++]))
-			   {
-                  return 1;
-               }
+				if (docmdfile(argv[i++]))
+				{
+					return 1;
+				}
 
-               break;
-            case 'd':
+				break;
+			case 'd':
 			case 'D':	                           // Wait for "return" before exiting
-               if (dflag)
-				   warn('d', 0);
+				if (dflag)
+					warn('d', 0);
 
-			   dflag = 1;
-               waitflag = 1;
-               break;
-            case 'e':
+				dflag = 1;
+				waitflag = 1;
+				break;
+			case 'e':
 			case 'E':                             // Output COFF (absolute only)
-               cflag = 1;
-               break;
-            case 'g':
+				cflag = 1;
+				break;
+			case 'g':
 			case 'G':                             // Output source level debugging
-               printf("\'g\' flag not currently implemented\n");
-               gflag = 0;
-               /*
-               if (gflag) warn('g', 1);
-               gflag = 1;
-               */
-               break;
-            case 'i':
+				printf("\'g\' flag not currently implemented\n");
+				gflag = 0;
+				/*
+				if (gflag) warn('g', 1);
+				gflag = 1;
+				*/
+				break;
+			case 'i':
 			case 'I':                             // Include binary file
-               if (i + 2 > argc)
-			   {
-                  printf("Not enough arguments to -i\n");
-                  return 1;
-               }
+				if (i + 2 > argc)
+				{
+					printf("Not enough arguments to -i\n");
+					return 1;
+				}
 
-               ifile = argv[i++];
-               isym = argv[i++];
+				ifile = argv[i++];
+				isym = argv[i++];
 
-               if ((argv[i-3][2] == 'i') || (argv[i-3][2] == 'I'))
-			   {   // handle -ii (No truncation)
-                  if (!cflag)
-					  printf("warning: (-ii) COFF format output not specified\n");
-               }
-               else
-			   {                                     // handle -i (Truncation)
-                  if (strlen(isym) > 7)
-					  isym[7] = '\0';
-               }
+				if ((argv[i-3][2] == 'i') || (argv[i-3][2] == 'I'))
+				{   // handle -ii (No truncation)
+					if (!cflag)
+						printf("warning: (-ii) COFF format output not specified\n");
+				}
+				else
+				{                                     // handle -i (Truncation)
+					if (strlen(isym) > 7)
+						isym[7] = '\0';
+				}
 
-               // Place include files in the DATA segment only
-               if (dofile(ifile, DSTSEG_D, isym))
-				   return 1;
+				// Place include files in the DATA segment only
+				if (dofile(ifile, DSTSEG_D, isym))
+					return 1;
 
-			   break;
-            case 'l':
+				break;
+			case 'l':
 			case 'L':                             // Add local symbols
-               if (lflag)
-				   warn('l', 1);
+				if (lflag)
+					warn('l', 1);
 
-			   lflag = 1;
-               break;
-            case 'm':
+				lflag = 1;
+				break;
+			case 'm':
 			case 'M':                             // Produce load symbol map
-               if (mflag)
-				   warn('m', 1);
+				if (mflag)
+					warn('m', 1);
 
-			   mflag = 1;
-               break;
-            case 'n':
+				mflag = 1;
+				break;
+			case 'n':
 			case 'N':                             // Output no header to .abs file
-               if (noheaderflag)
-				   warn('n', 1);
+				if (noheaderflag)
+					warn('n', 1);
 
-			   noheaderflag = 1;
-               break;
-            case 'o':
+				noheaderflag = 1;
+				break;
+			case 'o':
 			case 'O': 	                           // Specify an output file
-               if (oflag)
-				   warn('o', 1);
+				if (oflag)
+					warn('o', 1);
 
-			   oflag = 1;
+				oflag = 1;
 
-			   if (i >= argc)
-			   {
-                  printf("No output filename following -o switch\n");
-                  return 1;
-               }
+				if (i >= argc)
+				{
+					printf("No output filename following -o switch\n");
+					return 1;
+				}
 
-               if (strlen(argv[i]) > FARGSIZE - 5)
-			   {
-                  printf("Output file name too long (sorry!)\n");
-                  return 1;
-               }
+				if (strlen(argv[i]) > FARGSIZE - 5)
+				{
+					printf("Output file name too long (sorry!)\n");
+					return 1;
+				}
 
-               strcpy(ofile, argv[i++]);
-               break;
-            case 'r':
+				strcpy(ofile, argv[i++]);
+				break;
+			case 'r':
 			case 'R':                             // Section alignment size
-               if (rflag)
-				   warn('r', 1);
+				if (rflag)
+					warn('r', 1);
 
-			   rflag = 1;
+				rflag = 1;
 
-			   switch (argv[i-1][2])
-			   {
-                  case 'w': case 'W': secalign = 1;  break; // Word alignment
-                  case 'l': case 'L': secalign = 3;  break; // Long alignment
-                  case 'p': case 'P': secalign = 7;  break; // Phrase alignment
-                  case 'd': case 'D': secalign = 15; break; // Double phrase alignment
-                  case 'q': case 'Q': secalign = 31; break; // Quad phrase alignment
-                  default:            secalign = 7;  break; // Default phrase alignment
-               }
+				switch (argv[i-1][2])
+				{
+					case 'w': case 'W': secalign = 1;  break; // Word alignment
+					case 'l': case 'L': secalign = 3;  break; // Long alignment
+					case 'p': case 'P': secalign = 7;  break; // Phrase alignment
+					case 'd': case 'D': secalign = 15; break; // Double phrase alignment
+					case 'q': case 'Q': secalign = 31; break; // Quad phrase alignment
+					default:            secalign = 7;  break; // Default phrase alignment
+				}
 
-               break;
-            case 's':
+				break;
+			case 's':
 			case 'S':                             // Output only global symbols
-               if (sflag)
-				   warn('s', 1);
+				if (sflag)
+					warn('s', 1);
 
-			   sflag = 1;
-               break;
-            case 'v':
+				sflag = 1;
+				break;
+			case 'v':
 			case 'V':	                           // Verbose information
-               if (!vflag && !versflag)
-			   {
-                  display_version();
-               }
+				if (!vflag && !versflag)
+				{
+					display_version();
+				}
 
-               vflag++;
-               break;
-            case 'z':
+				vflag++;
+				break;
+			case 'w':
+			case 'W':	                           // Show warnings flag
+				if (wflag)
+					warn('w', 1);
+
+				wflag = 1;
+				break;
+			case 'z':
 			case 'Z':	                           // Suppress banner flag
-               if (zflag)
-				   warn('z', 1);
+				if (zflag)
+					warn('z', 1);
 
-			   zflag = 1;
-               break;
-            default:
-               printf("unknown option argument `%c'\n", c);
-               return 1;
-         }
-      }
-      else
-	  {                                              // Not a switch, then process as a file
-         if (dofile(argv[i++], 0, NULL))
-			 return 1;
-      }
+				zflag = 1;
+				break;
+			default:
+				printf("unknown option argument `%c'\n", c);
+				return 1;
+			}
+		}
+		else
+		{                                              // Not a switch, then process as a file
+			if (dofile(argv[i++], 0, NULL))
+				return 1;
+		}
 
-   }
+	}
 
-   if (!oflag && vflag)
-   {
-      strcpy(ofile, "output");
-      printf("Output file is %s[.ext]\n", ofile);
-   }
+	if (!oflag && vflag)
+	{
+		strcpy(ofile, "output");
+		printf("Output file is %s[.ext]\n", ofile);
+	}
 
-   if (oflag && vflag)
-	   printf("Output file is %s\n", ofile);
+	if (oflag && vflag)
+		printf("Output file is %s\n", ofile);
 
-   if (sflag)
-	   lflag = 0;
+	if (sflag)
+		lflag = 0;
 
-   return 0;                                               // No problems encountered
+	return 0;                                               // No problems encountered
 }
 
 
@@ -2821,6 +2801,7 @@ void display_help(void)
 	printf("                           q: quad phrase (32 bytes)\n");
 	printf("   -s                      output only global symbols\n");
 	printf("   -v                      set verbose mode\n");
+	printf("   -w                      show linker warnings\n");
 	printf("   -z                      suppress banner\n");
 	printf("\n");
 }
@@ -2840,7 +2821,7 @@ void rln_exit(void)
 	// Wait for return key if requested
 	if (waitflag)
 	{
-		printf("\nPress the <return> key to continue. ");
+		printf("\nPress the [RETURN] key to continue. ");
 		fgets(tempbuf, 128, stdin);
 	}
 
