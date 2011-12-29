@@ -16,7 +16,7 @@
 #ifdef WIN32
 //#define _OPEN_FLAGS  _O_BINARY|_O_RDWR
 #define _OPEN_FLAGS  _O_BINARY|_O_RDONLY
-#define _BACKSLASH   '\\'
+#define PATH_DELIMITER   '\\'
 #ifdef _MSC_VER
    #if _MSC_VER > 1000
       #pragma warning(disable:4996)
@@ -38,7 +38,7 @@
 #ifdef __GCCUNIX__
 //#define _OPEN_FLAGS  O_RDWR
 #define _OPEN_FLAGS  O_RDONLY
-#define _BACKSLASH   '/'
+#define PATH_DELIMITER   '/'
 #include <sys/fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -68,9 +68,9 @@
 #define warn(x, f) printf("Warning: repeated flag `%c'%s\n", x, f ? "; previous one(s) ignored." : ".")
 
 // Macro for max: good because longs, shorts, or pointers can be compared
-#ifndef max
-#define max(a,b) ((a) > (b) ? (a) : (b))
-#endif	// max
+#ifndef MAX
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#endif
 
 // Macro to swap the 16-bit words of a 32-bit integer
 #define _SWAPWORD(x) (((unsigned)(x) >> 16) | ((unsigned)(x) << 16))

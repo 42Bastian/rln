@@ -2043,10 +2043,12 @@ int dolist(void)
 //
 char * path_tail(char * name)
 {
-	char * temp = max(strrchr(name,'/'), max(strrchr(name,':'), strrchr(name, 92)));
+//	char * temp = MAX(strrchr(name, '/'), MAX(strrchr(name, ':'), strrchr(name, '\\')));
+	char * temp = strrchr(name, PATH_DELIMITER);
 
+	// Return what was passed in if path delimiter was not found
 	if (temp == NULL)
-		temp = (name - 1);
+		return name;
 
 	return temp + 1;
 }
@@ -2059,34 +2061,34 @@ int pladd(char * ptr, char * fname)
 {
 	if (plist == NULL)
 	{
-		plist = new_ofile();                                  // First time object record allocation
-		plast = plist;                                        // Update last object record pointer
+		plist = new_ofile();					// First time object record allocation
+		plast = plist;							// Update last object record pointer
 	}
 	else
 	{
-		plast->o_next = new_ofile();                          // Next object record allocation
-		plast = plast->o_next;                                // Update last object record pointer
+		plast->o_next = new_ofile();			// Next object record allocation
+		plast = plast->o_next;					// Update last object record pointer
 	}
 
 	if (plast == NULL)
 	{
-		printf("Out of memory.\n");                           // Error if memory allocation fails
+		printf("Out of memory.\n");				// Error if memory allocation fails
 		return 1;
 	}
 
-	if (strlen(path_tail(fname)) > FNLEN-1)
+	if (strlen(path_tail(fname)) > FNLEN - 1)
 	{                 // Error on excessive filename length
 		printf("File name too long: %s (sorry!)\n",fname);
 		return 1;
 	}
 
-	strcpy(plast->o_name, path_tail(fname));                 // Store filename, not path
-	*plast->o_arname = 0;                                    // No archive name for this file
-	plast->o_image = ptr;                                    // Store data pointer
-	plast->o_flags = O_USED;                                 // File is used
-	plast->o_next = NULL;                                    // Initialise next record pointer
+	strcpy(plast->o_name, path_tail(fname));	// Store filename, not path
+	*plast->o_arname = 0;						// No archive name for this file
+	plast->o_image = ptr;						// Store data pointer
+	plast->o_flags = O_USED;					// File is used
+	plast->o_next = NULL;						// Initialise next record pointer
 
-	return 0;                                               // Return without errors
+	return 0;									// Return without errors
 }
 
 
