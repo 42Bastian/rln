@@ -254,9 +254,9 @@ complete, total, and utter failure. :-)
 // This macro is used to compare two symbols for equality. It depends on
 // symcopy remaining as it is (copies two longs plus a null)
 
-//#define symcmp(a,b) ((*(uint32_t *)(a) == *(uint32_t *)(b)) && \
-//					(*(uint32_t *)((a) + sizeof(uint32_t)) == \
-//					*(uint32_t *)((b) + sizeof(uint32_t))))
+//#define symcmp(a,b) ((*(long *)(a) == *(long *)(b)) && \
+//					(*(long *)((a) + sizeof(long)) == \
+//					*(long *)((b) + sizeof(long))))
 
 // Function Prototypes
 
