@@ -754,7 +754,7 @@ int reloc_segment(struct OFILE * ofile, int flag)
 		// Shamus: Let's output some info to aid in debugging this crap
 		if (vflag)
 		{
-			printf("reloc_segment(): %s, $%08X: $%08X => $%08X\n", sym, addr, olddata, getlong(sptr + addr));
+			printf("reloc_segment(): %s, $%08X: $%08X => $%08X\n", (glblreloc ? sym : "(LOCAL)"), addr, olddata, getlong(sptr + addr));
 		}
 
 		rptr += 8;                              // Point to the next relocation record
