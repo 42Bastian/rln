@@ -22,7 +22,7 @@ unsigned sflag = 0;                     // Output only global symbols
 unsigned vflag = 0;                     // Verbose flag
 unsigned zflag = 0;                     // Suppress banner flag
 unsigned pflag, uflag, wflag = 1;           // Unimplemented flags
-unsigned hd = 0;                        // Index of next file handle to fill 
+unsigned hd = 0;                        // Index of next file handle to fill
 unsigned secalign = 7;                  // Section Alignment (8=phrase)
 unsigned tbase = 0;                     // TEXT base address
 unsigned dbase = 0;                     // DATA base address
@@ -36,26 +36,26 @@ unsigned dosymi = 0;                    // Dosym() processing iterator
 unsigned dbgsymbase = 0;                // Debug symbol base address
 //unsigned symtrunc = 0;                // Symbol truncation -i and -ii
 int noheaderflag = 0;                   // No header flag for ABS files
-int hflags;                             // Value of the arg to -h option 
-int ttype, dtype, btype;                // Type flag: 0, -1, -2, -3, -4 
-int tval, dval, bval;                   // Values of these abs bases 
+int hflags;                             // Value of the arg to -h option
+int ttype, dtype, btype;                // Type flag: 0, -1, -2, -3, -4
+int tval, dval, bval;                   // Values of these abs bases
 int hflag[NHANDLES];                    // True for include files
-int handle[NHANDLES];                   // Open file handles 
-int textsize, datasize, bsssize;        // Cumulative segment sizes 
+int handle[NHANDLES];                   // Open file handles
+int textsize, datasize, bsssize;        // Cumulative segment sizes
 char libdir[FARGSIZE * 3];              // Library directory to search
-char ofile[FARGSIZE];                   // Output file name (.o) 
-char * name[NHANDLES];                  // Associated file names 
+char ofile[FARGSIZE];                   // Output file name (.o)
+char * name[NHANDLES];                  // Associated file names
 char * cmdlnexec = NULL;                // Executable name - pointer to ARGV[0]
-char * hsym1[SYMLEN];                   // First symbol for include files 
-char * hsym2[SYMLEN];                   // Second symbol for include files 
+char * hsym1[SYMLEN];                   // First symbol for include files
+char * hsym2[SYMLEN];                   // Second symbol for include files
 struct OFILE * plist = NULL;            // Object image list pointer
 struct OFILE * plast;                   // Last object image list pointer
 struct OFILE * olist = NULL;            // Pointer to first object file in list
 struct OFILE * olast;                   // Pointer to last object file in list
 char obj_fname[512][FNLEN];             // Object file names
 unsigned obj_segsize[512][3];           // Object file seg sizes; TEXT,DATA,BSS
-unsigned obj_index = 0;                 // Object file index/count   
-struct HREC * htable[NBUCKETS];         // Hash table 
+unsigned obj_index = 0;                 // Object file index/count
+struct HREC * htable[NBUCKETS];         // Hash table
 struct HREC * unresolved = NULL;        // Pointer to unresolved hash list
 struct HREC * lookup(char *);           // Hash lookup
 char * ost;                             // Output symbol table
@@ -75,7 +75,7 @@ unsigned getlong(char * src)
 {
 	unsigned temp;
 	char * out;
-		
+
 	out = (char *)&temp;
 
 	if (endian == 1)
@@ -179,9 +179,9 @@ int dosym(struct OFILE * ofile)
 		+ ofile->o_header.absrel.reloc.dsize);
 
 	// Point to end of symbol record in the object file
-	symend = symptr + ofile->o_header.ssize;                 
+	symend = symptr + ofile->o_header.ssize;
 
-	// Search through object segment size table to accumulated segment sizes to ensure 
+	// Search through object segment size table to accumulated segment sizes to ensure
 	// the correct offsets are used in the resulting COF file.
 	ssidx = -1;                                              // Initialise segment index
 	tsegoffset = dsegoffset = bsegoffset = 0;                // Initialise segment offsets
@@ -203,7 +203,7 @@ int dosym(struct OFILE * ofile)
 	{
 		printf("dosym() : Cannot get object file segment size : %s\n", ofile->o_name);
 		return 1;
-	}   
+	}
 
 	// Process each record in the symbol table
 	for(; symptr!=symend; symptr+=12)
@@ -218,7 +218,7 @@ int dosym(struct OFILE * ofile)
 			// Obtain the string table index for the relocation symbol, look for it in the globals
 			// hash table to obtain information on that symbol. For the hash calculation to work
 			// correctly it must be placed in a 'clean' string before looking it up.
-			memset(sym, 0, SYMLEN);          
+			memset(sym, 0, SYMLEN);
 			strcpy(sym, symend + index);
 			hptr = lookup(sym);
 
@@ -228,10 +228,10 @@ int dosym(struct OFILE * ofile)
 				return 1;
 			}
 
-			// Search through object segment size table to obtain segment sizes for the object 
+			// Search through object segment size table to obtain segment sizes for the object
 			// that has the required external/global as a local symbol. As each object is
 			// interrogated the segment sizes are accumulated to ensure the correct offsets are
-			// used in the resulting COF file.  This is effectively 'done again' only as we 
+			// used in the resulting COF file.  This is effectively 'done again' only as we
 			// are working with a different object file.
 			ssidx = -1;                                        // Initialise segment index
 			tsegoffset = dsegoffset = bsegoffset = 0;          // Initialise segment offsets
@@ -251,14 +251,14 @@ int dosym(struct OFILE * ofile)
 
 			if (ssidx == -1)
 			{
-				printf("dosym() : Cannot get object file segment size : %s\n", 
+				printf("dosym() : Cannot get object file segment size : %s\n",
 					ofile->o_name);
 				return 1;
 			}
 
 			type = hptr->h_type;                               // Update type with global type
 
-			if (type == 0x03000000) 
+			if (type == 0x03000000)
 				type = 0x02000000;          // Reset external flag if absolute
 
 			// If the global/external has a value then update that vaule in accordance with the
@@ -288,19 +288,19 @@ int dosym(struct OFILE * ofile)
 			// Set the correct debug symbol base address (TEXT segment)
 			dbgsymbase = 0;
 
-			for(j=0; (unsigned)j<dosymi; j++) 
+			for(j=0; (unsigned)j<dosymi; j++)
 				dbgsymbase += obj_segsize[j][0];
 
 			switch (type & 0xFF000000)
 			{
-			case 0x64000000: 
-				value = tval + dbgsymbase; 
+			case 0x64000000:
+				value = tval + dbgsymbase;
 				break;
 			case 0x44000000:
 			case 0x46000000:
 			case 0x48000000:
 				value = tval + dbgsymbase + value;
-			default: 
+			default:
 				break;
 			}
 
@@ -342,20 +342,20 @@ int dosym(struct OFILE * ofile)
 			default:
 				break;
 			}
-		} 
+		}
 
 		// Add to output symbol table
 		if (lflag || !islocal(type))
 		{
 			if (islocal(type) || isglobal(type))
 			{
-				if ((index = ost_add(symend + index, type, value)) == -1) 
+				if ((index = ost_add(symend + index, type, value)) == -1)
 					return 1;
 			}
 			else
 			{
 				// Belongs in OST, but don't look it up yet
-				index = -1;	
+				index = -1;
 			}
 		}
 	}
@@ -387,9 +387,9 @@ void hash_free(void)
 }
 
 
-// 
+//
 // Add all Global and External Symbols to the Output Symbol Table
-// 
+//
 long docommon(void)
 {
 	struct HREC * hptr;                                       // Hash record pointer
@@ -406,7 +406,7 @@ long docommon(void)
 
 				if (ost_add(hptr->h_sym, hptr->h_type, hptr->h_value) == -1)
 					return -1;
-			} 
+			}
 		}
 	}
 
@@ -415,7 +415,7 @@ long docommon(void)
 
 
 //
-// Add a Symbol's Name, Type, and Value to the OST. 
+// Add a Symbol's Name, Type, and Value to the OST.
 // Return the Index of the Symbol in OST, or -1 for Error.
 //
 int ost_add(char * name, int type, long value)
@@ -491,8 +491,8 @@ int ost_add(char * name, int type, long value)
 	else
 	{
 		ostresult = ost_lookup(name);                         // Get symbol index in OST
-		// If the symbol is in the output symbol table and the bflag is set (don't remove multiply 
-		// defined locals) and this is not an external/global symbol *** OR *** the symbol is not 
+		// If the symbol is in the output symbol table and the bflag is set (don't remove multiply
+		// defined locals) and this is not an external/global symbol *** OR *** the symbol is not
 		// in the output symbol table then add it.
 		if (((ostresult != -1) && bflag && !(type & 0x01000000))
 			|| ((ostresult != -1) && gflag &&  (type & 0xF0000000)) || (ostresult == -1))
@@ -506,7 +506,7 @@ int ost_add(char * name, int type, long value)
 			putlong(ost_ptr + 8, value);
 			ost_ptr += 12;
 
-			// If the symbol type is anything but a debug line information symbol then write 
+			// If the symbol type is anything but a debug line information symbol then write
 			// the symbol string to the string table
 			if ((type & 0xF0000000) != 0x40000000)
 			{
@@ -558,7 +558,7 @@ int dounresolved(void)
 	{
 		if (ost_add(hptr->h_sym, T_EXT, 0L) == -1)
 			return 1;
-
+printf("dounresolved(): added %s\n",hptr->h_sym);
 		htemp = hptr->h_next;                   // Temporarily get ptr to next record
 		free(hptr);                             // Free current record
 		hptr = htemp;                           // Make next record ptr, current
@@ -576,7 +576,7 @@ int dounresolved(void)
 //
 int reloc_segment(struct OFILE * ofile, int flag)
 {
-	char * symtab;                              // Start of symbol table 
+	char * symtab;                              // Start of symbol table
 	char * symbols;                             // Start of symbols
 	char * sptr;                                // Start of segment data
 	char * rptr;                                // Start of segment relocation records
@@ -601,7 +601,7 @@ int reloc_segment(struct OFILE * ofile, int flag)
 	{
 		// TEXT segment size plus padding
 		pad = ((ofile->o_header.tsize+secalign) & ~secalign);
-		textoffset += (ofile->o_header.tsize + (pad - ofile->o_header.tsize)); 
+		textoffset += (ofile->o_header.tsize + (pad - ofile->o_header.tsize));
 
 		if (vflag > 1)
 			printf("reloc_segment(%s, TEXT) : No Relocation Data\n", ofile->o_name);
@@ -630,7 +630,7 @@ int reloc_segment(struct OFILE * ofile, int flag)
 	// Verbose mode information
 	if (vflag > 1)
 	{
-		printf("reloc_segment(%s, %s) : Processing Relocation Data\n", 
+		printf("reloc_segment(%s, %s) : Processing Relocation Data\n",
 			ofile->o_name, flag == T_DATA ? "DATA" : "TEXT");
 	}
 
@@ -642,12 +642,17 @@ int reloc_segment(struct OFILE * ofile, int flag)
 	symbols = symtab + ofile->o_header.ssize;
 
 	// Obtain pointer to start of TEXT segment
-	sptr = ofile->o_image + 32;                              
+	sptr = ofile->o_image + 32;
 
 	// Obtain pointer to start of TEXT relocation records
 	rptr = sptr + (ofile->o_header.tsize + ofile->o_header.dsize);
 
 	relocsize = ofile->o_header.absrel.reloc.tsize;
+
+    if (vflag)
+    {
+        printf("RELOCSIZE :: %d  Records = %d\n",relocsize,relocsize/8);
+    }
 
 	// Update pointers if DATA relocation records are being processed
 	if (flag == T_DATA)
@@ -676,7 +681,7 @@ int reloc_segment(struct OFILE * ofile, int flag)
 			// symbol. For the hash calculation to work correctly it must be
 			// placed in a 'clean' string before looking it up.
 			symidx = getlong(symtab + ((rflg >> 8) * 12));
-			memset(sym, 0, SYMLEN);          
+			memset(sym, 0, SYMLEN);
 			strcpy(sym, symbols + symidx);
 			olddata = newdata = 0;              // Initialise old and new segment data
 			ssidx = ost_lookup(sym);
@@ -709,10 +714,10 @@ int reloc_segment(struct OFILE * ofile, int flag)
 // Braces were not here, so if something breaks, try pairing the else to the 1st 'if'...
 				if (!glblreloc)
 				{
-					if (flag == T_TEXT)
+					if (flag == T_TEXT)     // Is this a TEXT section record?
 						newdata = tbase + textoffset + olddata;
 					else
-						newdata = tbase + dataoffset + olddata;
+						newdata = tbase + dataoffset + olddata; // Nope, must be DATA section
 				}
 
 				break;
@@ -754,7 +759,7 @@ int reloc_segment(struct OFILE * ofile, int flag)
 		// Shamus: Let's output some info to aid in debugging this crap
 		if (vflag)
 		{
-			printf("reloc_segment(): %s, $%08X: $%08X => $%08X\n", (glblreloc ? sym : "(LOCAL)"), addr, olddata, getlong(sptr + addr));
+			printf("reloc_segment(%d): %s, $%08X: $%08X => $%08X\n",i, (glblreloc ? sym : "(LOCAL)"), addr, olddata, getlong(sptr + addr));
 		}
 
 		rptr += 8;                              // Point to the next relocation record
@@ -774,7 +779,7 @@ int reloc_segment(struct OFILE * ofile, int flag)
 		dataoffset += (ofile->o_header.dsize + (pad - ofile->o_header.dsize));
 		// BSS segment plus padding
 		pad = ((ofile->o_header.bsize + secalign) & ~secalign);
-		bssoffset += (ofile->o_header.bsize + (pad - ofile->o_header.bsize)); 
+		bssoffset += (ofile->o_header.bsize + (pad - ofile->o_header.bsize));
 	}
 
 	// Return value, should always be zero
@@ -822,7 +827,7 @@ int tryopen(char ** p_name)
 	char * tmpbuf, * lastdot;                                // Buffer and 'dot' pointers
 	int fd, hasdot;                                          // File descriptor and 'has dot' flag
 
-	// Note that libdir will be an empty string if there is none specified 
+	// Note that libdir will be an empty string if there is none specified
 	if ((tmpbuf = malloc((long)strlen(name) + strlen(libdir) + 3)) == NULL)
 	{
 		printf("tryopen() : out of memory\n");
@@ -837,7 +842,7 @@ int tryopen(char ** p_name)
 		goto ok;       // Try to open file as passed first
 
 	if (!hasdot)
-	{                                         
+	{
 		strcat(tmpbuf, ".o");                                 // Try to open file with '.o' added
 
 		if ((fd = open(tmpbuf, _OPEN_FLAGS)) >= 0)
@@ -923,7 +928,7 @@ int dofile(char * fname, int flag, char * sym)
 		return 1;
 	}
 
-	// The file is open; save its info in the handle and name arrays 
+	// The file is open; save its info in the handle and name arrays
 	handle[hd] = fd;
 	name[hd] = fname;                                        // This is the name from tryopen()
 	hflag[hd] = flag;
@@ -933,15 +938,15 @@ int dofile(char * fname, int flag, char * sym)
 	{
 		temp = strlen(sym);                                   // Get symbol length
 
-		// 100 chars is max length of a symbol 
+		// 100 chars is max length of a symbol
 		if (temp > 99)
 		{
 			sym[99] = '\0';
 			temp = 99;
 		}
 
-		// Malloc enough space for two symbols, then build the second one. Second one may be one 
-		// character longer than first 
+		// Malloc enough space for two symbols, then build the second one. Second one may be one
+		// character longer than first
 		if ((hsym1[hd] = malloc((long)temp + 1)) == NULL
 			|| (hsym2[hd] = malloc((long)temp + 2)) == NULL)
 		{
@@ -1041,7 +1046,7 @@ int write_ofile(struct OHEADER * header)
 	fd = fopen(ofile, "wb");                                 // Attempt to open output file
 
 	if (!fd)
-	{                              
+	{
 		printf("Can't open output file %s\n", ofile);         // Error opening output file
 		return 1;
 	}
@@ -1052,7 +1057,7 @@ int write_ofile(struct OHEADER * header)
 	{
 		tsoff = dsoff = bsoff = 0xA8;                         // Initialises segment offsets
 
-		// Process each object file segment size to obtain a cumulative segment size for both 
+		// Process each object file segment size to obtain a cumulative segment size for both
 		// the TEXT and DATA segments
 		for(i=0; i<(int)obj_index; i++)
 		{
@@ -1078,11 +1083,11 @@ int write_ofile(struct OHEADER * header)
 		putlong(himage + 28,  header->dsize        );         // DATA size in bytes
 		putlong(himage + 32,  header->bsize        );         // BSS size in bytes
 		putlong(himage + 36,  tbase                );         // Start of executable, normally @TEXT
-		putlong(himage + 40,  tbase                );         // @TEXT      
+		putlong(himage + 40,  tbase                );         // @TEXT
 		putlong(himage + 44,  dbase                );         // @DATA
 
 		// Build the TEXT SEC_HDR
-		putlong(himage + 48,  0x2E746578           );                     
+		putlong(himage + 48,  0x2E746578           );
 		putlong(himage + 52,  0x74000000           );         // ".text"
 		putlong(himage + 56,  tbase                );         // TEXT START
 		putlong(himage + 60,  tbase                );         // TEXT START
@@ -1094,7 +1099,7 @@ int write_ofile(struct OHEADER * header)
 		putlong(himage + 84,  0x00000020           );         // SEC_FLAGS: STYP_TEXT
 
 		// Build the DATA SEC_HDR
-		putlong(himage + 88,  0x2E646174           );                     
+		putlong(himage + 88,  0x2E646174           );
 		putlong(himage + 92,  0x61000000           );         // ".data"
 		putlong(himage + 96,  dbase                );         // DATA START
 		putlong(himage + 100, dbase                );         // DATA START
@@ -1106,7 +1111,7 @@ int write_ofile(struct OHEADER * header)
 		putlong(himage + 124, 0x00000040           );         // SEC_FLAGS: STYP_DATA
 
 		// Build the BSS SEC_HDR
-		putlong(himage + 128, 0x2E627373           );                     
+		putlong(himage + 128, 0x2E627373           );
 		putlong(himage + 132, 0x00000000           );         // ".bss"
 		putlong(himage + 136, bbase                );         // BSS START
 		putlong(himage + 140, bbase                );         // BSS START
@@ -1128,7 +1133,7 @@ int write_ofile(struct OHEADER * header)
 		putlong(himage + 6,   header->dsize        );         // DATA segment size
 		putlong(himage + 10,  header->bsize        );         // BSS segment size
 		putlong(himage + 14,  ost_index * 14       );         // Symbol table size (?)
-		putlong(himage + 18,  0x00000000           );         // 
+		putlong(himage + 18,  0x00000000           );         //
 		putlong(himage + 22,  tbase                );         // TEXT base address
 		putword(himage + 26,  0xFFFF               );         // Flags (?)
 		putlong(himage + 28,  dbase                );         // DATA base address
@@ -1142,13 +1147,13 @@ int write_ofile(struct OHEADER * header)
 	if (!cflag)
 	{
 		if (!noheaderflag)
-			if (fwrite(himage, 36, 1, fd) != 1) 
+			if (fwrite(himage, 36, 1, fd) != 1)
 				goto werror;
 	}
 	// Absolute (COF) header
 	else
 	{
-		if (fwrite(himage, 168, 1, fd) != 1) 
+		if (fwrite(himage, 168, 1, fd) != 1)
 			goto werror;
 	}
 
@@ -1163,11 +1168,11 @@ int write_ofile(struct OHEADER * header)
 			if (vflag > 1)
 				printf("Writing TEXT Segment of %s\n", otemp->o_name);
 
-			if (fwrite(otemp->o_image + 32, osize, 1, fd) != 1) 
+			if (fwrite(otemp->o_image + 32, osize, 1, fd) != 1)
 				goto werror;
 
 			// Pad to required alignment boundary
-			if (segmentpad(fd, osize, 0x0000))		
+			if (segmentpad(fd, osize, 0x0000))
 				goto werror;
 
 			symoffset += osize;
@@ -1189,7 +1194,7 @@ int write_ofile(struct OHEADER * header)
 				goto werror;
 
 			// Pad to required alignment boundary
-			if (segmentpad(fd, osize, 0))	                     
+			if (segmentpad(fd, osize, 0))
 				goto werror;
 
 			symoffset += osize;
@@ -1211,8 +1216,8 @@ int write_ofile(struct OHEADER * header)
 		// Absolute (ABS) symbol/string table
 		else
 		{
-			// The symbol and string table have been created as part of the dosym() function and the 
-			// output symbol and string tables are in COF format. For an ABS file we need to process 
+			// The symbol and string table have been created as part of the dosym() function and the
+			// output symbol and string tables are in COF format. For an ABS file we need to process
 			// through this to create the 14 character long combined symbol and string table.
 			// Format of symbol table in ABS: AAAAAAAATTVVVV, where (A)=STRING, (T)=TYPE & (V)=VALUE
 
@@ -1266,7 +1271,7 @@ int write_ofile(struct OHEADER * header)
 		}
 	}
 
-	// Close the file 
+	// Close the file
 	if (fclose(fd))
 	{
 		printf("Close error on output file %s\n",ofile);
@@ -1299,13 +1304,13 @@ int write_map(struct OHEADER * header)
 
 	printf("LOAD MAP\n\n");
 
-	// Outer loop for each of the symbol areas to map out; 
+	// Outer loop for each of the symbol areas to map out;
 	// 0 = NON-RELOCATABLE SYMBOLS
 	// 1 = TEXT-SEGMENT RELOCATABLE SYMBOLS
 	// 2 = DATA-SEGMENT RELOCATABLE SYMBOLS
 	// 3 = BSS-SEGMENT RELOCATABLE SYMBOLS
 	for(o=0; o<4; o++)
-	{                                 
+	{
 		// Display the correct map header for the symbols being processed
 		switch (o)
 		{
@@ -1324,12 +1329,12 @@ int write_map(struct OHEADER * header)
 			type   = getlong(ost + (i * 12) + 4);              // Get symbol type
 			value  = getlong(ost + (i * 12) + 8);              // Get symbol value
 			symbol = oststr + index;                           // Get symbol string
-			
+
 			// Display only three columns
 			if (c == 3)
 			{
 				printf("\n");
-				c = 0;       
+				c = 0;
 			}
 
 			// If local symbols not included and the type is local then go to next symbol record
@@ -1440,7 +1445,7 @@ struct OHEADER * make_ofile()
 
 	textsize = datasize = bsssize = 0;                       // Initialise cumulative segment sizes
 
-	// For each object file, accumulate the sizes of the segments but remove those 
+	// For each object file, accumulate the sizes of the segments but remove those
 	// object files which are unused
 	oprev = NULL;                                            // Init previous obj file list ptr
 	otemp = olist;                                           // Set temp pointer to object file list
@@ -1502,7 +1507,7 @@ struct OHEADER * make_ofile()
 			ost_add("_BSS_E", 0x09000000, tval + textsize + datasize + bsssize);
 		}
 		else
-		{ 
+		{
 			// BSS is independant of DATA
 			bbase = bval;
 			ost_add("_BSS_E", 0x09000000, bval + bsssize);
@@ -1528,9 +1533,9 @@ struct OHEADER * make_ofile()
 		}
 	}
 
-	// Place each unresolved symbol in the output symbol table 
+	// Place each unresolved symbol in the output symbol table
 	if (dounresolved())
-		return NULL;                         
+		return NULL;
 
 	tptr = 0;                                                // Initialise base addresses
 	dptr = 0;
@@ -1554,8 +1559,8 @@ struct OHEADER * make_ofile()
 			bptr += (otemp->o_header.bsize + secalign) & ~secalign;
 		}
 
-		// For each symbol, (conditionally) add it to the ost 
-		// For ARCHIVE markers, this adds the symbol for the file & returns 
+		// For each symbol, (conditionally) add it to the ost
+		// For ARCHIVE markers, this adds the symbol for the file & returns
 		if (dosym(otemp))
 			return NULL;
 
@@ -1599,7 +1604,7 @@ struct OHEADER * make_ofile()
 	header->bsize = bsssize;                    // BSS segment size
 	header->ssize = (ost_ptr - ost);            // Symbol table size
 	header->ostbase = ost;                      // Output symbol table base address
-   
+
 	// For each object file, relocate its TEXT and DATA segments. OR the result
 	// into ret so all files get moved (and errors reported) before returning
 	// with the error condition
@@ -1683,7 +1688,8 @@ struct HREC * lookup(char * sym)
 
 	while (hptr != NULL)
 	{
-		if (symcmp(symbol, hptr->h_sym))
+		// if (symcmp(symbol, hptr->h_sym))  <-- left here for giggles :D  - LinkoVitch
+		if (strcmp(symbol,hptr->h_sym)==0)
 			return hptr;
 
 		hptr = hptr->h_next;                                  // Return hash pointer if found
@@ -1712,10 +1718,11 @@ int hash_add(char * sym, long type, long value, struct OFILE * ofile)
 		return add_to_hlist(&htable[dohash(sym)], sym, ofile, value, type);
 	}
 
+
 	// Already there!
 	if (iscommon(type) && !iscommon(hptr->h_type))
 	{
-		// Mismatch: global came first; warn and keep the global one 
+		// Mismatch: global came first; warn and keep the global one
 		if (wflag)
 		{
 			printf("Warning: %s: global from ",sym);
@@ -1730,7 +1737,7 @@ int hash_add(char * sym, long type, long value, struct OFILE * ofile)
 	}
 	else if (iscommon(hptr->h_type) && !iscommon(type))
 	{
-		// Mismatch: common came first; warn and keep the global one 
+		// Mismatch: common came first; warn and keep the global one
 		if (wflag)
 		{
 			printf("Warning: %s: global from ", sym);
@@ -1746,7 +1753,7 @@ int hash_add(char * sym, long type, long value, struct OFILE * ofile)
 	}
 	else if (flag)
 	{			                                 // They're both global
-		// Global exported by another ofile; warn and make this one extern 
+		// Global exported by another ofile; warn and make this one extern
 		if (wflag)
 		{
 			printf("Duplicate symbol %s: ", sym);
@@ -1759,7 +1766,7 @@ int hash_add(char * sym, long type, long value, struct OFILE * ofile)
 		putword(sym + 8, ABST_EXTERN);
 	}
 	else
-	{			                                          // They're both common 
+	{			                                          // They're both common
 		if (hptr->h_value < value)
 		{
 			hptr->h_value = value;
@@ -1775,7 +1782,7 @@ int hash_add(char * sym, long type, long value, struct OFILE * ofile)
 // Add the imported symbols from this file to unresolved, and the global and
 // common symbols to the exported hash table.
 //
-// Change old-style commons (type == T_EXTERN, value != 0) to new-style ones 
+// Change old-style commons (type == T_EXTERN, value != 0) to new-style ones
 // (type == (T_GLOBAL | T_EXTERN)).
 //
 int add_symbols(struct OFILE * Ofile)
@@ -1794,8 +1801,8 @@ int add_symbols(struct OFILE * Ofile)
 		printf("Add symbols for file %s\n", Ofile->o_name);
 
 	ptr = Ofile->o_image + 32                                // Get base pointer, start of sym fixups
-		+ Ofile->o_header.tsize 
-		+ Ofile->o_header.dsize 
+		+ Ofile->o_header.tsize
+		+ Ofile->o_header.dsize
 		+ Ofile->o_header.absrel.reloc.tsize
 		+ Ofile->o_header.absrel.reloc.dsize;
 	sfix = ptr;                                              // Set symbol fixup pointer
@@ -1885,7 +1892,7 @@ int doobj(char * fname, char * ptr, char * aname, int flags)
 	Ofile->o_bbase = 0;
 	Ofile->o_flags = flags;
 	Ofile->o_image = ptr;
-		
+
 	// Don't do anything if this is just an ARCHIVE marker, just add the file to the olist
 	if (!(flags & O_ARCHIVE))
 	{
@@ -1896,8 +1903,8 @@ int doobj(char * fname, char * ptr, char * aname, int flags)
 		Ofile->o_header.ssize = getlong(ptr+16);
 		Ofile->o_header.absrel.reloc.tsize = getlong(ptr+24);
 		Ofile->o_header.absrel.reloc.dsize = getlong(ptr+28);
-		
-		// Round BSS off to alignment boundary 
+
+		// Round BSS off to alignment boundary
 		Ofile->o_header.bsize = (Ofile->o_header.bsize + secalign) & ~secalign;
 
 		if (Ofile->o_header.dsize & 7)
@@ -1906,7 +1913,7 @@ int doobj(char * fname, char * ptr, char * aname, int flags)
 			put_name(Ofile);
 			printf(" is not a phrase multiple\n");
 		}
-		
+
 		// Check for odd segment sizes
 		if ((Ofile->o_header.tsize & 1) || (Ofile->o_header.dsize & 1)
 			|| (Ofile->o_header.bsize & 1))
@@ -1921,10 +1928,10 @@ int doobj(char * fname, char * ptr, char * aname, int flags)
 			return 1;
 	}
 
-	// Add this file to the olist 
-	if (olist == NULL) 
+	// Add this file to the olist
+	if (olist == NULL)
 		olist = Ofile;
-	else 
+	else
 		olast->o_next = Ofile;
 
 	olast = Ofile;
@@ -1945,7 +1952,7 @@ int dolist(void)
 	// Process object file list
 	while (plist != NULL)
 	{
-		if (doobj(plist->o_name, plist->o_image, plist->o_arname, plist->o_flags)) 
+		if (doobj(plist->o_name, plist->o_image, plist->o_arname, plist->o_flags))
 			return 1;
 
 		ptemp = plist;
@@ -2011,7 +2018,7 @@ char * path_tail(char * name)
 int pladd(char * ptr, char * fname)
 {
 	if (plist == NULL)
-	{  
+	{
 		plist = new_ofile();                                  // First time object record allocation
 		plast = plist;                                        // Update last object record pointer
 	}
@@ -2022,7 +2029,7 @@ int pladd(char * ptr, char * fname)
 	}
 
 	if (plast == NULL)
-	{                                
+	{
 		printf("Out of memory.\n");                           // Error if memory allocation fails
 		return 1;
 	}
@@ -2058,7 +2065,7 @@ int pladd(char * ptr, char * fname)
 //
 int doinclude(char * fname, int handle, char * sym1, char * sym2, int segment)
 {
-	long fsize, dsize, size;                                 // File, DATA segment and image sizes 
+	long fsize, dsize, size;                                 // File, DATA segment and image sizes
 	char * ptr, * sptr;                                      // Data pointers
 	int i;                                                   // Iterators
 	int sym1len = 0;                                         // Symbol 1 length
@@ -2095,13 +2102,13 @@ int doinclude(char * fname, int handle, char * sym1, char * sym2, int segment)
 
 	strcpy(obj_fname[obj_index], path_tail(fname));
 
-	// Build this image's dummy header 
+	// Build this image's dummy header
 	putlong(ptr, 0x00000107);                                // Magic number
 
 	if (segment)
 	{
-		putlong(ptr+4, dsize);                                // Text size 
-		putlong(ptr+8, 0L);                                   // Data size 
+		putlong(ptr+4, dsize);                                // Text size
+		putlong(ptr+8, 0L);                                   // Data size
 		symtype = 0x05000000;
 		obj_segsize[obj_index][0] = dsize;
 		obj_segsize[obj_index][1] = 0;
@@ -2109,8 +2116,8 @@ int doinclude(char * fname, int handle, char * sym1, char * sym2, int segment)
 	}
 	else
 	{
-		putlong(ptr+4, 0L);                                   // Text size 
-		putlong(ptr+8, dsize);                                // Data size 
+		putlong(ptr+4, 0L);                                   // Text size
+		putlong(ptr+8, dsize);                                // Data size
 		symtype = 0x07000000;
 		obj_segsize[obj_index][0] = 0;
 		obj_segsize[obj_index][1] = dsize;
@@ -2119,7 +2126,7 @@ int doinclude(char * fname, int handle, char * sym1, char * sym2, int segment)
 
 	obj_index++;                                             // Increment object count
 
-	putlong(ptr+12, 0L);                                     // BSS size 
+	putlong(ptr+12, 0L);                                     // BSS size
 	putlong(ptr+16, 24);                                     // Symbol table size
 	putlong(ptr+20, 0L);                                     // Entry point
 	putlong(ptr+24, 0L);                                     // TEXT relocation size
@@ -2141,7 +2148,7 @@ int doinclude(char * fname, int handle, char * sym1, char * sym2, int segment)
 	sptr = ptr + 32 + dsize + 24 + 4;                        // Set sptr to symbol table location
 
 	for(i=0; i<(sym1len-1); i++)                             // Write symbol1 to string table
-		sptr[i] = *sym1++;     
+		sptr[i] = *sym1++;
 
 	sptr += (sym1len-1);                                     // Step past symbol string
 	*sptr = '\0';                                            // Terminate symbol string
@@ -2172,7 +2179,7 @@ int doobject(char * fname, int fd, char * ptr)
 	long size;                                               // File size
 
 	if (ptr == NULL)
-	{                                        
+	{
 		size = FSIZE(fd);                                     // Get size of input object file
 
 		// Allocate memory for file data
@@ -2199,9 +2206,9 @@ int doobject(char * fname, int fd, char * ptr)
 		obj_index++;
 
 		close(fd);                                            // Close file
-	}    
+	}
 
-	// Now add this image to the list of pending ofiles (plist) 
+	// Now add this image to the list of pending ofiles (plist)
 	// This routine is shared by doinclude after it builds the image
 	return pladd(ptr, fname);
 }
@@ -2234,14 +2241,14 @@ int flush_handles(void)
 				close(handle[i]);                               // Close file and error
 				return 1;
 			}
-		
-			lseek(handle[i], 0L, 0);                           // Reset to start of input file 
+
+			lseek(handle[i], 0L, 0);                           // Reset to start of input file
 	//		test = getlong(magic); printf("Magic Number is 0x%08X\n", test);
 
 			if (getlong(magic) == 0x00000107)
 			{                 // Look for SMAC/MAC object files
 				if (doobject(name[i], handle[i], 0L))            // Process input object file
-					return 1; 
+					return 1;
 			}
 			else
 			{
@@ -2254,7 +2261,7 @@ int flush_handles(void)
 		{
 			// INCLUDE FILES
 			// If hflag[i] is 1, include this in the data segment; if 2, put in in text segment
-			if (doinclude(name[i], handle[i], hsym1[i], hsym2[i], hflag[i] - 1)) 
+			if (doinclude(name[i], handle[i], hsym1[i], hsym2[i], hflag[i] - 1))
 				return 1;
 		}
 	}
@@ -2262,7 +2269,7 @@ int flush_handles(void)
 	// Free include, symbol & object handles
 	for(i=0; i<(int)hd; i++)
 	{
-		free(name[i]); 
+		free(name[i]);
 
 		if (hflag[i])
 		{
@@ -2370,7 +2377,7 @@ int docmdfile(char * fname)
 
 	// Attempt to open and read in the command file
 	if (fname)
-	{ 
+	{
 		if ((fd = open(fname, _OPEN_FLAGS)) < 0)
 		{
 			printf("Cannot open command file %s.\n", fname);
@@ -2429,14 +2436,14 @@ int doargs(int argc, char * argv[])
 {
    int i = 1;                                               // Iterator
    int c;                                                   // Command line character
-   char * ifile, * isym;	                                 // File name and symbol name for -i 
+   char * ifile, * isym;	                                 // File name and symbol name for -i
 
    while (i < argc)
    {                                        // Parse through option switches & files
       if (argv[i][0] == '-')
 	  {                               // Process command line switches
          if (!argv[i][1])
-		 { 
+		 {
             printf("Illegal option argument: %s\n\n", argv[i]);
             display_help();
 		      return 1;
@@ -2453,7 +2460,7 @@ int doargs(int argc, char * argv[])
                display_help();
                return 1;
             case 'a':
-			case 'A': 	                           // Set absolute linking on 
+			case 'A': 	                           // Set absolute linking on
                if (aflag)
 				   warn('a', 1);
 
@@ -2465,7 +2472,7 @@ int doargs(int argc, char * argv[])
 
                aflag = 1;                                   // Set abs link flag
                // Segment order is TEXT, DATA, BSS
-               // Text segment can be 'r', 'x' or a value 
+               // Text segment can be 'r', 'x' or a value
                ttype = 0;
 
 			   if ((*argv[i] == 'r' || *argv[i] == 'R') && !argv[i][1])
@@ -2484,7 +2491,7 @@ int doargs(int argc, char * argv[])
                }
 
                i++;
-               // Data segment can be 'r', 'x' or a value 
+               // Data segment can be 'r', 'x' or a value
                dtype = 0;
 
 			   if ((*argv[i] == 'r' || *argv[i] == 'R') && !argv[i][1])
@@ -2504,7 +2511,7 @@ int doargs(int argc, char * argv[])
                i++;
                btype = 0;
 
-			   // BSS segment can be 'r', 'x' or a value 
+			   // BSS segment can be 'r', 'x' or a value
                if ((*argv[i] == 'r' || *argv[i] == 'R') && !argv[i][1])
 			   {
                   btype = -1;                               // BSS segment is relocatable
@@ -2543,7 +2550,7 @@ int doargs(int argc, char * argv[])
 
                break;
             case 'd':
-			case 'D':	                           // Wait for "return" before exiting 
+			case 'D':	                           // Wait for "return" before exiting
                if (dflag)
 				   warn('d', 0);
 
@@ -2573,7 +2580,7 @@ int doargs(int argc, char * argv[])
 
                ifile = argv[i++];
                isym = argv[i++];
-			   
+
                if ((argv[i-3][2] == 'i') || (argv[i-3][2] == 'I'))
 			   {   // handle -ii (No truncation)
                   if (!cflag)
@@ -2612,7 +2619,7 @@ int doargs(int argc, char * argv[])
 			   noheaderflag = 1;
                break;
             case 'o':
-			case 'O': 	                           // Specify an output file 
+			case 'O': 	                           // Specify an output file
                if (oflag)
 				   warn('o', 1);
 
@@ -2667,7 +2674,7 @@ int doargs(int argc, char * argv[])
                vflag++;
                break;
             case 'z':
-			case 'Z':	                           // Suppress banner flag 
+			case 'Z':	                           // Suppress banner flag
                if (zflag)
 				   warn('z', 1);
 
@@ -2709,8 +2716,8 @@ void display_version(void)
 {
 	if (displaybanner)// && vflag)
 	{
-		printf("\nReboot's Linker for Atari Jaguar\n"); 
-		printf("Copyright (c) 199x Allan K. Pratt, 2011 Reboot\n"); 
+		printf("\nReboot's Linker for Atari Jaguar\n");
+		printf("Copyright (c) 199x Allan K. Pratt, 2011 Reboot\n");
 		printf("V%i.%i.%i %s (%s)\n\n", MAJOR, MINOR, PATCH, __DATE__, PLATFORM);
 	}
 }
@@ -2796,7 +2803,7 @@ int get_endianess(void)
 int main(int argc, char * argv[])
 {
 	char * s = NULL;                            // String pointer for "getenv"
-	struct HREC * utemp;                        // Temporary hash record pointer 
+	struct HREC * utemp;                        // Temporary hash record pointer
 	struct OHEADER * header;                    // Pointer to output header structure
 
 	endian = get_endianess();                   // Get processor endianess
@@ -2816,7 +2823,7 @@ int main(int argc, char * argv[])
 	if (!zflag && !vflag)
 	{
 		display_version();                      // Display version information
-		versflag = 1;	                        // We've dumped the version banner 
+		versflag = 1;	                        // We've dumped the version banner
 	}
 
 	// Process in specified files/objects
@@ -2847,7 +2854,7 @@ int main(int argc, char * argv[])
 	{
 		printf("UNRESOLVED SYMBOLS\n");
 
-		// Don't list them if two -u's or more 
+		// Don't list them if two -u's or more
 		if (uflag < 2)
 		{
 			utemp = unresolved;
@@ -2895,7 +2902,7 @@ int main(int argc, char * argv[])
 			printf("Absolute linking ");
 
 			if (cflag)
-			printf("(COF)\n"); 
+			printf("(COF)\n");
 			else
 			printf("(ABS)\n");
 		}

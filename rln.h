@@ -7,9 +7,9 @@
 #ifndef __RLH_H__
 #define __RLH_H__
 
-// Required Include Files 
+// Required Include Files
 
-// Macro Definitions 
+// Macro Definitions
 
 // Requirements for Windows Compilation
 
@@ -56,11 +56,11 @@
 
 #ifdef WIN32
 #define PLATFORM     "Win32"                    // Release platform - Windows
-#else 
+#else
 #ifdef __GCCUNIX__
 #define PLATFORM     "OSX/Linux"                // Release platform - MAC OSX or Linux
 #else
-#define PLATFORM     "Unknown"                  // Release platform - Not Specified 
+#define PLATFORM     "Unknown"                  // Release platform - Not Specified
 #endif
 #endif
 
@@ -73,11 +73,11 @@
 #endif	// max
 
 // Macro to swap the 16-bit words of a 32-bit integer
-#define _SWAPWORD(x) (((unsigned)(x) >> 16) | ((unsigned)(x) << 16)) 
+#define _SWAPWORD(x) (((unsigned)(x) >> 16) | ((unsigned)(x) << 16))
 
 #define FARGSIZE     1024                       // Number of chars in filename argument
-#define FNLEN        1024                       // Size of a file name 
-#define NHANDLES     256                        // Number of open file handles at once 
+#define FNLEN        1024                       // Size of a file name
+#define NHANDLES     256                        // Number of open file handles at once
 #define OST_BLOCK    0x400000                   // Output symbol table block (4MB)
 #define DSTSEG_D     1                          // Include file destination seg (DATA)
 #define DSTSEG_T     2                          // Include file destination seg (TEXT)
@@ -99,22 +99,22 @@ struct OHEADER
    long bsize;
    long ssize;
    union {
-      struct {			                        // For .o 
+      struct {			                        // For .o
          long tsize;                            // Text relocation size
          long dsize;                            // Data relocation size
          char reserved[12];
       } reloc;
-      struct {			                        // For .abs 
-         long stksize;		                    // Unused 
-         long tstart;                           // Start of TEXT 
-         long rbflag;                           // -1 if no fixups at all 
-         long dstart;                           // Start of DATA 
+      struct {			                        // For .abs
+         long stksize;		                    // Unused
+         long tstart;                           // Start of TEXT
+         long rbflag;                           // -1 if no fixups at all
+         long dstart;                           // Start of DATA
          long bstart;                           // Start of BSS
       } abs;
    } absrel;
-   char * ostbase;                              // Base of output symbol table 
+   char * ostbase;                              // Base of output symbol table
    long fsize;                                  // Length of fixups
-   char * fixups;                               // Start of fixups 
+   char * fixups;                               // Start of fixups
 };
 
 #define new_oheader()   (struct OHEADER *)malloc((long)sizeof(struct OHEADER))
@@ -127,7 +127,7 @@ struct ARHEADER
    char a_gid;
    int a_fimode;
    long a_fsize;
-   int reserved;                                // Two bytes zeroes btw header & file 
+   int reserved;                                // Two bytes zeroes btw header & file
 };
 
 #define new_arheader()  (struct ARHEADER *)malloc((long)sizeof(struct ARHEADER))
@@ -149,7 +149,7 @@ struct OFILE
 #define new_ofile()  (struct OFILE *)malloc((long)sizeof(struct OFILE))
 
 // Flags in an Object File's o_flags field
-// O_USED: means this ofile is used or is on the command line or in a -x 
+// O_USED: means this ofile is used or is on the command line or in a -x
 #define O_USED	      0x0001
 #define O_ARCHIVE    0x0002                     // This is a dummy archive entry
 
@@ -163,7 +163,7 @@ struct OFILE
 
 struct SYMREC
 {
-   char s_name[SYMLEN];                         // Including null terminator 
+   char s_name[SYMLEN];                         // Including null terminator
    int s_type;
    long s_value;
    struct SYMREC *s_next;
@@ -175,7 +175,7 @@ struct SYMREC
 
 // HREC: One item in a hash bucket, including a link to the next item. Commons
 // and Globals share a hash table, but their value fields are interpreted
-// differently.  
+// differently.
 
 struct HREC
 {
@@ -216,11 +216,11 @@ struct HREC
 #define ABST_DATA       0x0400	/* data-based relocatable */
 #define ABST_TEXT       0x0200	/* text-based relocatable */
 #define ABST_BSS        0x0100	/* bss-based relocatable  */
-#define ABST_FILE       0x0080                  // file symbol 
-#define ABST_ARCHIVE    0x0040                  // only when FILE set: archive file or no 
-#define ABST_OST        0x0001                  // private: "symbol is in ost": see above 
+#define ABST_FILE       0x0080                  // file symbol
+#define ABST_ARCHIVE    0x0040                  // only when FILE set: archive file or no
+#define ABST_OST        0x0001                  // private: "symbol is in ost": see above
 #define T_COMMON	(T_GLOBAL | T_EXTERN)
-#define T_SEG		(T_DATA | T_TEXT | T_BSS)   // segment bits 
+#define T_SEG		(T_DATA | T_TEXT | T_BSS)   // segment bits
 
 // Symbol Table - Type Definitions
 
@@ -237,13 +237,6 @@ struct HREC
 #define isglobal(type) (((type) & T_EXT) == T_EXT)
 #define isextern(type) (((type) & T_EXT) == T_EXT)
 #define islocal(type)  (((type) & T_EXT) == 0)
-
-// This macro is used to compare two symbols for equality. It depends on
-// symcopy remaining as it is (copies two longs plus a null)
-
-#define symcmp(a,b) ((*(long *)(a) == *(long *)(b)) && \
-					(*(long *)((a) + sizeof(long)) == \
-					*(long *)((b) + sizeof(long))))
 
 // Function Prototypes
 
