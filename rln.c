@@ -950,7 +950,8 @@ int dofile(char * fname, int flag, char * sym)
 	// Reached maximum file handles
 	if (hd == NHANDLES)
 	{
-		if (flush_handles()) return 1;
+		if (flush_handles())
+			return 1;
 	}
 
 	// Attempt to open input file
@@ -2112,7 +2113,7 @@ int doinclude(char * fname, int handle, char * sym1, char * sym2, int segment)
 	unsigned symtype = 0;
 
 	fsize = FSIZE(handle);                                   // Get size of include file
-	dsize = (fsize+secalign) & ~secalign;	                  // Round up to a alignment boundary
+	dsize = (fsize + secalign) & ~secalign;	                  // Round up to a alignment boundary
 
 	sym1len = strlen(sym1) + 1;                              // Get sym1 length + null termination
 	sym2len = strlen(sym2) + 1;                              // Get sym2 length + null termination
@@ -2129,7 +2130,7 @@ int doinclude(char * fname, int handle, char * sym1, char * sym2, int segment)
 	}
 
 	// Read in binary data
-	if (read(handle, ptr+32, fsize) != fsize)
+	if (read(handle, ptr + 32, fsize) != fsize)
 	{
 		printf("File read error on %s\n", fname);
 		close(handle);
