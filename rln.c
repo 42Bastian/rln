@@ -67,18 +67,22 @@ char * oststr_end;                      // Output string table; end pointer
 int ost_index = 0;                      // Index of next ost addition
 int endian;                             // Processor endianess
 
+// Some human readable defines for endianess
+#define ENDIANNESS_BIG     1
+#define ENDIANNESS_LITTLE  0
+
 
 //
 // Get a Long Word from Memory
 //
-unsigned getlong(char * src)
+uint32_t getlong(uint8_t * src)
 {
-	unsigned temp;
-	char * out;
+	uint32_t temp;
+	uint8_t * out;
 
-	out = (char *)&temp;
+	out = (uint8_t *)&temp;
 
-	if (endian == 1)
+	if (endian == ENDIANNESS_BIG)
 	{
 		*out++ = src[0];
 		*out++ = src[1];
@@ -100,28 +104,43 @@ unsigned getlong(char * src)
 //
 // Put a Long Word into Memory
 //
-void putlong(char * dest, unsigned val)
+void putlong(uint8_t * dest, uint32_t val)
 {
-	*dest++ = (char)(val >> 24);
-	*dest++ = (char)(val >> 16);
-	*dest++ = (char)(val >> 8);
-	*dest = (char)val;
+	*dest++ = (uint8_t)(val >> 24);
+	*dest++ = (uint8_t)(val >> 16);
+	*dest++ = (uint8_t)(val >> 8);
+	*dest = (uint8_t)val;
 }
 
 
 //
 // Get a Word from Memory
 //
-int getword(char * src)
+uint16_t getword(uint8_t * src)
 {
-	unsigned temp;
-	char * out;
+	uint16_t temp;
+	uint8_t * out;
 
-	out = (char *)&temp;
+	out = (uint8_t *)&temp;
+#if 0
+	// Shamus: This assumes little endian...
 	*out++ = src[1];
 	*out++ = src[0];
-	*out++ = 0;
-	*out = 0;
+// Shamus: And *why* do this as a uint32_t???
+//	*out++ = 0;
+//	*out = 0;
+#else
+	if (endian == ENDIANNESS_BIG)
+	{
+		out[0] = src[0];
+		out[1] = src[1];
+	}
+	else
+	{
+		out[0] = src[1];
+		out[1] = src[0];
+	}
+#endif
 
 	return temp;
 }
@@ -130,10 +149,10 @@ int getword(char * src)
 //
 // Put a Word into Memory
 //
-void putword(char * dest, int val)
+void putword(uint8_t * dest, uint16_t val)
 {
-	*dest++ = (char)(val >> 8);
-	*dest = (char)val;
+	*dest++ = (uint8_t)(val >> 8);
+	*dest = (uint8_t)val;
 }
 
 
@@ -392,8 +411,8 @@ void hash_free(void)
 //
 long docommon(void)
 {
-	struct HREC * hptr;                                       // Hash record pointer
-	int i;                                                   // Iterator
+	struct HREC * hptr;							// Hash record pointer
+	int i;										// Iterator
 
 	for(i=0; i<NBUCKETS; i++)
 	{
@@ -402,7 +421,7 @@ long docommon(void)
 			if (iscommon(hptr->h_type))
 			{
 				if (hptr->h_type == 0x03000000)
-					hptr->h_type = 0x02000000;                   // Absolutes can't be externals
+					hptr->h_type = 0x02000000;	// Absolutes can't be externals
 
 				if (ost_add(hptr->h_sym, hptr->h_type, hptr->h_value) == -1)
 					return -1;
@@ -420,9 +439,9 @@ long docommon(void)
 //
 int ost_add(char * name, int type, long value)
 {
-	int ost_offset_p, ost_offset_e = 0;                      // OST table offsets for position calcs
-	int slen = 0;                                            // Symbol string length
-	int ostresult;                                           // OST index result
+	int ost_offset_p, ost_offset_e = 0;			// OST table offsets for position calcs
+	int slen = 0;								// Symbol string length
+	int ostresult;								// OST index result
 
 	slen = strlen(name);
 
@@ -455,8 +474,9 @@ int ost_add(char * name, int type, long value)
 		ost_offset_p = (ost_ptr - ost);
 		ost_offset_e = (ost_end - ost);
 
+		// 3 x int (12)
 		if ((ost_ptr + 12) > ost_end)
-		{                  // 3 x int (12)
+		{
 			if ((ost = realloc(ost, (unsigned)(ost_end + OST_BLOCK))) == NULL)
 			{
 				printf("OST memory reallocation error.\n");
@@ -470,7 +490,7 @@ int ost_add(char * name, int type, long value)
 		ost_offset_p = (oststr_ptr - oststr);
 		ost_offset_e = (oststr_end - oststr);
 
-		if ((oststr_ptr + (slen+1+4)) > oststr_end)
+		if ((oststr_ptr + (slen + 1 + 4)) > oststr_end)
 		{
 			if ((oststr = realloc(oststr, (unsigned)(oststr_end + OST_BLOCK))) == NULL)
 			{
@@ -483,20 +503,40 @@ int ost_add(char * name, int type, long value)
 		}
 	}
 
-	// If this is a debug symbol and the include debug symbol flag (-g) is not set then do nothing
+#if 0
+if ((strcmp(name, "U235SE_playback_rate") == 0)
+	|| (strcmp(name, "U235SE_playback_period") == 0))
+{
+	printf("%s found: ost[0]=$%08X, ost[1]=$%08X, ost[2]=$%08X\n", name, getlong(ost_ptr), type, value);
+}
+#endif
+	// If this is a debug symbol and the include debug symbol flag (-g) is not
+	// set then do nothing
 	if ((type & 0xF0000000) && !gflag)
 	{
 		// Do nothing
+#if 0
+if ((strcmp(name, "U235SE_playback_rate") == 0)
+	|| (strcmp(name, "U235SE_playback_period") == 0))
+	printf("%s was IGNORED!\n", name);
+#endif
 	}
 	else
 	{
 		ostresult = ost_lookup(name);                         // Get symbol index in OST
-		// If the symbol is in the output symbol table and the bflag is set (don't remove multiply
-		// defined locals) and this is not an external/global symbol *** OR *** the symbol is not
-		// in the output symbol table then add it.
+
+		// If the symbol is in the output symbol table and the bflag is set
+		// (don't remove multiply defined locals) and this is not an
+		// external/global symbol *** OR *** the symbol is not in the output
+		// symbol table then add it.
 		if (((ostresult != -1) && bflag && !(type & 0x01000000))
-			|| ((ostresult != -1) && gflag &&  (type & 0xF0000000)) || (ostresult == -1))
+			|| ((ostresult != -1) && gflag && (type & 0xF0000000)) || (ostresult == -1))
 		{
+#if 1
+if ((strcmp(name, "U235SE_playback_rate") == 0)
+	|| (strcmp(name, "U235SE_playback_period") == 0))
+	printf("%s was added to the ost.\n", name);
+#endif
 			if ((type & 0xF0000000) == 0x40000000)
 				putlong(ost_ptr, 0x00000000);                   // Zero string table offset for dbg line
 			else
@@ -506,8 +546,8 @@ int ost_add(char * name, int type, long value)
 			putlong(ost_ptr + 8, value);
 			ost_ptr += 12;
 
-			// If the symbol type is anything but a debug line information symbol then write
-			// the symbol string to the string table
+			// If the symbol type is anything but a debug line information
+			// symbol then write the symbol string to the string table
 			if ((type & 0xF0000000) != 0x40000000)
 			{
 				strcpy(oststr_ptr, name);                       // Put symbol name in string table
@@ -521,7 +561,8 @@ int ost_add(char * name, int type, long value)
 		}
 	}
 
-	return 0; // not sure about this as it could affect return indices. needed to stop return error.
+	// not sure about this as it could affect return indices. needed to stop return error.
+	return 0;
 }
 
 
@@ -535,10 +576,20 @@ int ost_lookup(char * sym)
 
 	for(i=0; i<ost_index; i++)
 	{
-		if (!strcmp(oststr + stro, sym))
+		if (strcmp(oststr + stro, sym) == 0)
+		{
+#if 0
+			// Shamus: More debug stuffs...
+			if (vflag > 1)
+			{
+				printf("ost_lookup(): Found @ %i (looking for '%s', found '%s')\n", i, sym, oststr + stro);
+			}
+#endif
+
 			return i + 1;
-		else
-			stro += strlen(oststr + stro) + 1;
+		}
+
+		stro += strlen(oststr + stro) + 1;
 	}
 
 	return -1;
@@ -686,6 +737,8 @@ int reloc_segment(struct OFILE * ofile, int flag)
 			olddata = newdata = 0;              // Initialise old and new segment data
 			ssidx = ost_lookup(sym);
 			newdata = getlong(ost + ((ssidx - 1) * 12) + 8);
+//nope, false lead. -0 & -2 give bad results
+//			newdata = getlong(ost + ((ssidx - 2) * 12) + 8);
 		}
 
 		// Obtain the existing long word segment data and flip words if the
@@ -757,9 +810,15 @@ int reloc_segment(struct OFILE * ofile, int flag)
 		}
 
 		// Shamus: Let's output some info to aid in debugging this crap
-		if (vflag)
+		if (vflag > 1)
 		{
-			printf("reloc_segment(%d): %s, $%08X: $%08X => $%08X\n",i, (glblreloc ? sym : "(LOCAL)"), addr, olddata, getlong(sptr + addr));
+			char ssiString[128];
+			ssiString[0] = 0;
+
+			if (glblreloc)
+				sprintf(ssiString, " [ssi:%i]", ssidx);
+
+			printf("reloc_segment($%08X): %s, $%08X: $%08X => $%08X%s\n", rflg, (glblreloc ? sym : "(LOCAL)"), addr, olddata, getlong(sptr + addr), ssiString);
 		}
 
 		rptr += 8;                              // Point to the next relocation record
@@ -890,7 +949,7 @@ ok:
 void put_name(struct OFILE * p)
 {
 	int flag = *(p->o_arname);
-	printf("%s%s%s", flag ? p->o_arname : "", flag ? ":" : "", p->o_name);
+	printf("%s%s%s", (flag ? (char *)(p->o_arname) : ""), (flag ? ":" : ""), p->o_name);
 }
 
 
@@ -1638,6 +1697,12 @@ int add_to_hlist(struct HREC ** hptr, char * sym, struct OFILE * ofile, long val
 		return 1;
 	}
 
+	// Shamus: Moar testing...
+	if (vflag > 1)
+	{
+		printf("add_to_hlist(): hptr=$%08X, sym=\"%s\", ofile=$%08X, value=%li, type=%i", (unsigned int)hptr, sym, (unsigned int)ofile, value, type);
+	}
+
 	for(i=0; i<SYMLEN; i++)
 		htemp->h_sym[i] = '\0';
 
@@ -1688,8 +1753,9 @@ struct HREC * lookup(char * sym)
 
 	while (hptr != NULL)
 	{
-		// if (symcmp(symbol, hptr->h_sym))  <-- left here for giggles :D  - LinkoVitch
-		if (strcmp(symbol,hptr->h_sym)==0)
+//This is utter failure...
+//		if (symcmp(symbol, hptr->h_sym))  <-- left here for giggles :D  - LinkoVitch
+		if (strcmp(symbol, hptr->h_sym) == 0)
 			return hptr;
 
 		hptr = hptr->h_next;                                  // Return hash pointer if found
@@ -2791,9 +2857,9 @@ int get_endianess(void)
 	char * p = (char *)&i;
 
 	if (p[0] == 1)
-		return 0;		// LITTLE
+		return ENDIANNESS_LITTLE;
 
-	return 1;			// BIG
+	return ENDIANNESS_BIG;
 }
 
 
@@ -2902,9 +2968,9 @@ int main(int argc, char * argv[])
 			printf("Absolute linking ");
 
 			if (cflag)
-			printf("(COF)\n");
+				printf("(COF)\n"); 
 			else
-			printf("(ABS)\n");
+				printf("(ABS)\n");
 		}
 
 		if (vflag > 1)
@@ -2928,6 +2994,8 @@ int main(int argc, char * argv[])
 		printf("| (Hex)   | %8X | %8X | %8X |\n", (unsigned int)header->tsize, (unsigned int)header->dsize, (unsigned int)header->bsize);
 		printf("+---------+----------+----------+----------+\n\n");
 	}
+
+//printf("BIG_ENDIAN = %i, LITTLE_ENDIAN = %i\n", BIG_ENDIAN, LITTLE_ENDIAN);
 
 	free(header);                               // Free allocated memory
 	rln_exit();                                 // Perform application exit

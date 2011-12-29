@@ -51,8 +51,8 @@
 #endif
 
 #define MAJOR        1                          // Major version number
-#define MINOR        0                          // Minor version number
-#define PATCH        2                          // Patch release number
+#define MINOR        1                          // Minor version number
+#define PATCH        0                          // Patch release number
 
 #ifdef WIN32
 #define PLATFORM     "Win32"                    // Release platform - Windows
@@ -91,66 +91,70 @@
 // will have to read the file into a buffer and stuff the values into the
 // structure (see slongio.c).
 
+// Rather than rely on dodgy compilers for something that's now a C99 standard,
+// let's do this:
+#include <stdint.h>
+
 struct OHEADER
 {
-   long magic;			                        // $0107 for .o, $601B for abs
-   long tsize;
-   long dsize;
-   long bsize;
-   long ssize;
-   union {
-      struct {			                        // For .o
-         long tsize;                            // Text relocation size
-         long dsize;                            // Data relocation size
-         char reserved[12];
-      } reloc;
-      struct {			                        // For .abs
-         long stksize;		                    // Unused
-         long tstart;                           // Start of TEXT
-         long rbflag;                           // -1 if no fixups at all
-         long dstart;                           // Start of DATA
-         long bstart;                           // Start of BSS
-      } abs;
-   } absrel;
-   char * ostbase;                              // Base of output symbol table
-   long fsize;                                  // Length of fixups
-   char * fixups;                               // Start of fixups
+	uint32_t magic;								// $0107 for .o, $601B for abs
+	uint32_t tsize;
+	uint32_t dsize;
+	uint32_t bsize;
+	uint32_t ssize;
+	union {
+		struct {								// For .o 
+			uint32_t tsize;						// Text relocation size
+			uint32_t dsize;						// Data relocation size
+			uint8_t reserved[12];
+		} reloc;
+		struct {								// For .abs 
+			uint32_t stksize;					// Unused 
+			uint32_t tstart;					// Start of TEXT 
+			uint32_t rbflag;					// -1 if no fixups at all 
+			uint32_t dstart;					// Start of DATA 
+			uint32_t bstart;					// Start of BSS
+		} abs;
+	} absrel;
+	uint8_t * ostbase;							// Base of output symbol table 
+	uint32_t fsize;								// Length of fixups
+	uint8_t * fixups;							// Start of fixups 
 };
 
-#define new_oheader()   (struct OHEADER *)malloc((long)sizeof(struct OHEADER))
+#define new_oheader()   (struct OHEADER *)malloc((uint32_t)sizeof(struct OHEADER))
 
 struct ARHEADER
 {
-   char a_fname[14];
-   long a_modti;
-   char a_userid;
-   char a_gid;
-   int a_fimode;
-   long a_fsize;
-   int reserved;                                // Two bytes zeroes btw header & file
+	uint8_t a_fname[14];
+	uint32_t a_modti;
+	uint8_t a_userid;
+	uint8_t a_gid;
+	uint16_t a_fimode;
+	uint32_t a_fsize;
+	uint16_t reserved;							// Two bytes zeroes btw header & file 
 };
 
-#define new_arheader()  (struct ARHEADER *)malloc((long)sizeof(struct ARHEADER))
+#define new_arheader()  (struct ARHEADER *)malloc((uint32_t)sizeof(struct ARHEADER))
 
 // Object File Structure and Related Items
 
 struct OFILE
 {
-   char o_name[FNLEN];                          // Fixed-length names
-   char o_arname[FNLEN];                        // Name of archive this is from
-   struct OFILE * o_next;                       // Next object file
-   long o_tbase, o_dbase, o_bbase;              // Computed bases for this ofile
-   int o_symstart;                              // First sym in image is nth in out
-   int o_flags;                                 // Flags (see O_*)
-   struct OHEADER o_header;                     // Header of this file
-   char * o_image;                              // Image of this file
+	uint8_t o_name[FNLEN];						// Fixed-length names
+	uint8_t o_arname[FNLEN];					// Name of archive this is from
+	struct OFILE * o_next;						// Next object file
+	uint32_t o_tbase, o_dbase, o_bbase;			// Computed bases for this ofile
+	uint16_t o_symstart;						// First sym in image is nth in out
+	uint16_t o_flags;							// Flags (see O_*)
+	struct OHEADER o_header;					// Header of this file
+	uint8_t * o_image;							// Image of this file
 };
 
-#define new_ofile()  (struct OFILE *)malloc((long)sizeof(struct OFILE))
+#define new_ofile()  (struct OFILE *)malloc((uint32_t)sizeof(struct OFILE))
 
 // Flags in an Object File's o_flags field
 // O_USED: means this ofile is used or is on the command line or in a -x
-#define O_USED	      0x0001
+#define O_USED       0x0001
 #define O_ARCHIVE    0x0002                     // This is a dummy archive entry
 
 // Symbol Record
@@ -163,13 +167,13 @@ struct OFILE
 
 struct SYMREC
 {
-   char s_name[SYMLEN];                         // Including null terminator
-   int s_type;
-   long s_value;
-   struct SYMREC *s_next;
+	uint8_t s_name[SYMLEN];						// Including null terminator 
+	uint16_t s_type;
+	uint32_t s_value;
+	struct SYMREC * s_next;
 };
 
-#define new_symrec() (struct SYMREC *)malloc((long)sizeof(struct SYMREC))
+#define new_symrec() (struct SYMREC *)malloc((uint32_t)sizeof(struct SYMREC))
 
 // Hash Record
 
@@ -179,14 +183,16 @@ struct SYMREC
 
 struct HREC
 {
-   char h_sym[SYMLEN];
-   struct HREC * h_next;
-   struct OFILE * h_ofile;
-   long h_value;
-   int h_type;
+	uint8_t h_sym[SYMLEN];
+	struct HREC * h_next;
+	struct OFILE * h_ofile;
+	uint32_t h_value;
+//Shamus: This was an "int" but as per above, should have been a 16-bit value.
+//        Changing it to a 32-bit value (as per compiler warning).
+	uint32_t h_type;
 };
 
-#define new_hrec()   (struct HREC *)malloc((long)sizeof(struct HREC))
+#define new_hrec()   (struct HREC *)malloc((uint32_t)sizeof(struct HREC))
 
 #define NBUCKETS     1024                       // Number of hash buckets
 
@@ -225,7 +231,7 @@ struct HREC
 // Symbol Table - Type Definitions
 
 #define T_UNDF          0x00000000     // Undefined Symbol
-#define T_EXT           0x01000000     // External Bit, OR’ed In
+#define T_EXT           0x01000000     // External Bit, OR'ed In
 #define T_ABS           0x02000000     // Absolute Symbol
 #define T_TEXT          0x04000000     // TEXT Segment
 #define T_DATA          0x06000000     // DATA Segment
@@ -237,6 +243,20 @@ struct HREC
 #define isglobal(type) (((type) & T_EXT) == T_EXT)
 #define isextern(type) (((type) & T_EXT) == T_EXT)
 #define islocal(type)  (((type) & T_EXT) == 0)
+
+/*
+Shamus:
+Just look at this. I can't believe that somebody actually wrote this piece of
+failure and thought it was a good idea. I'm leaving it here as a testament to
+complete, total, and utter failure. :-)
+*/
+
+// This macro is used to compare two symbols for equality. It depends on
+// symcopy remaining as it is (copies two longs plus a null)
+
+//#define symcmp(a,b) ((*(uint32_t *)(a) == *(uint32_t *)(b)) && \
+//					(*(uint32_t *)((a) + sizeof(uint32_t)) == \
+//					*(uint32_t *)((b) + sizeof(uint32_t))))
 
 // Function Prototypes
 
