@@ -532,7 +532,7 @@ if ((strcmp(name, "U235SE_playback_rate") == 0)
 		if (((ostresult != -1) && bflag && !(type & 0x01000000))
 			|| ((ostresult != -1) && gflag && (type & 0xF0000000)) || (ostresult == -1))
 		{
-#if 1
+#if 0
 if ((strcmp(name, "U235SE_playback_rate") == 0)
 	|| (strcmp(name, "U235SE_playback_period") == 0))
 	printf("%s was added to the ost.\n", name);
