@@ -9,11 +9,11 @@ LIBS =
 
 OSTYPE := $(shell uname -a)
 
-ifeq "$(findstring Msys,$(OSTYPE))" "Msys"			# Win32
+ifeq "$(findstring Msys,$(OSTYPE))" "Msys"	# Win32
 
 OSDEFINE   := WIN32
 
-else											# ???
+else		# ???
 
 OSDEFINE   := __GCCUNIX__
 
@@ -23,7 +23,7 @@ endif
 # Change this to -DWIN32 for Windows :-)
 #CFLAGS = -g -I. -D__GCCUNIX__
 #CFLAGS = -g -I. -DWIN32
-CFLAGS = -g -I. -D$(OSDEFINE)
+CFLAGS = -g -I. -D$(OSDEFINE) -O2
 
 SRCS = rln.c 
 
