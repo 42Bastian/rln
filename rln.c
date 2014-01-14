@@ -1961,7 +1961,7 @@ int doobj(char * fname, char * ptr, char * aname, int flags)
 		// Round BSS off to alignment boundary
 		Ofile->o_header.bsize = (Ofile->o_header.bsize + secalign) & ~secalign;
 
-		if (Ofile->o_header.dsize & 7)
+		if ((Ofile->o_header.dsize & 7) && wflag)
 		{
 			printf("Warning: data segment size of ");
 			put_name(Ofile);
@@ -2091,8 +2091,9 @@ int pladd(char * ptr, char * fname)
 	}
 
 	if (strlen(path_tail(fname)) > FNLEN - 1)
-	{                 // Error on excessive filename length
-		printf("File name too long: %s (sorry!)\n",fname);
+	{
+		// Error on excessive filename length
+		printf("File name too long: %s (sorry!)\n", fname);
 		return 1;
 	}
 
