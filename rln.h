@@ -51,7 +51,7 @@
 #endif
 
 #define MAJOR        1                          // Major version number
-#define MINOR        1                          // Minor version number
+#define MINOR        2                          // Minor version number
 #define PATCH        0                          // Patch release number
 
 #ifdef WIN32
@@ -222,24 +222,29 @@ struct HREC
 #define ABST_DATA       0x0400	/* data-based relocatable */
 #define ABST_TEXT       0x0200	/* text-based relocatable */
 #define ABST_BSS        0x0100	/* bss-based relocatable  */
-#define ABST_FILE       0x0080                  // file symbol
-#define ABST_ARCHIVE    0x0040                  // only when FILE set: archive file or no
-#define ABST_OST        0x0001                  // private: "symbol is in ost": see above
+#define ABST_FILE       0x0080	// file symbol
+#define ABST_ARCHIVE    0x0040	// only when FILE set: archive file or no
+#define ABST_OST        0x0001	// private: "symbol is in ost": see above
 #define T_COMMON	(T_GLOBAL | T_EXTERN)
 #define T_SEG		(T_DATA | T_TEXT | T_BSS)   // segment bits
 
 // Symbol Table - Type Definitions
 
 #define T_UNDF          0x00000000     // Undefined Symbol
-#define T_EXT           0x01000000     // External Bit, OR'ed In
-#define T_ABS           0x02000000     // Absolute Symbol
+#define T_EXT           0x01000000     // External Bit, OR'ed In (Global)
+#define T_ABS           0x02000000     // Absolute Symbol (Equated)
 #define T_TEXT          0x04000000     // TEXT Segment
 #define T_DATA          0x06000000     // DATA Segment
 #define T_BSS           0x08000000     // BSS Segment
 
 // These macros are used with the TYPE field of a SYMBOL.
+/*
+Absolutes (equates) can't be externals (line 434)
+-- they are non-relocatable
+*/
 
-#define iscommon(type) (((type) & T_EXT) == T_EXT)
+//#define iscommon(type) (((type) & T_EXT) == T_EXT)
+#define iscommon(type) (((type) & T_EXT) == 0)
 #define isglobal(type) (((type) & T_EXT) == T_EXT)
 #define isextern(type) (((type) & T_EXT) == T_EXT)
 #define islocal(type)  (((type) & T_EXT) == 0)
@@ -276,3 +281,4 @@ int segmentpad(FILE *, long, int);
 int ost_lookup(char *);
 
 #endif // __RLH_H__
+

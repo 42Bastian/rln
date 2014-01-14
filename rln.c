@@ -178,18 +178,18 @@ long FSIZE(int fd)
 //
 int dosym(struct OFILE * ofile)
 {
-	char * symptr;                                            // Symbol pointer
-	char * symend;                                            // Symbol end pointer
-	int type;                                                // Symbol type
-	long value;                                              // Symbol value
-	int index;                                               // Symbol index
-	int j;                                                   // Iterator
-	int ssidx;                                               // Segment size table index
-	unsigned tsegoffset;                                     // Cumulative TEXT segment offset
-	unsigned dsegoffset;                                     // Cumulative DATA segment offset
-	unsigned bsegoffset;                                     // Cumulative BSS segment offset
-	struct HREC * hptr;                                       // Hash table pointer for globl/extrn
-	char sym[SYMLEN];                                        // String for symbol name/hash search
+	char * symptr;				// Symbol pointer
+	char * symend;				// Symbol end pointer
+	int type;					// Symbol type
+	long value;					// Symbol value
+	int index;					// Symbol index
+	int j;						// Iterator
+	int ssidx;					// Segment size table index
+	unsigned tsegoffset;		// Cumulative TEXT segment offset
+	unsigned dsegoffset;		// Cumulative DATA segment offset
+	unsigned bsegoffset;		// Cumulative BSS segment offset
+	struct HREC * hptr;			// Hash table pointer for globl/extrn
+	char sym[SYMLEN];			// String for symbol name/hash search
 
 	// Point to first symbol record in the object file
 	symptr = (ofile->o_image + 32
@@ -206,8 +206,9 @@ int dosym(struct OFILE * ofile)
 	ssidx = -1;                                              // Initialise segment index
 	tsegoffset = dsegoffset = bsegoffset = 0;                // Initialise segment offsets
 
+	// Search for object file name
 	for(j=0; j<(int)obj_index; j++)
-	{                    // Search for object file name
+	{
 		if (!strcmp(ofile->o_name, obj_fname[j]))
 		{
 			ssidx = j;                                         // Object file name found
@@ -235,9 +236,10 @@ int dosym(struct OFILE * ofile)
 		// Global/External symbols have a pre-processing stage
 		if (type & 0x01000000)
 		{
-			// Obtain the string table index for the relocation symbol, look for it in the globals
-			// hash table to obtain information on that symbol. For the hash calculation to work
-			// correctly it must be placed in a 'clean' string before looking it up.
+			// Obtain the string table index for the relocation symbol, look
+			// for it in the globals hash table to obtain information on that
+			// symbol. For the hash calculation to work correctly it must be
+			// placed in a 'clean' string before looking it up.
 			memset(sym, 0, SYMLEN);
 			strcpy(sym, symend + index);
 			hptr = lookup(sym);
@@ -248,10 +250,11 @@ int dosym(struct OFILE * ofile)
 				return 1;
 			}
 
-			// Search through object segment size table to obtain segment sizes for the object
-			// that has the required external/global as a local symbol. As each object is
-			// interrogated the segment sizes are accumulated to ensure the correct offsets are
-			// used in the resulting COF file.  This is effectively 'done again' only as we
+			// Search through object segment size table to obtain segment sizes
+			// for the object that has the required external/global as a local
+			// symbol. As each object is interrogated the segment sizes are
+			// accumulated to ensure the correct offsets are used in the
+			// resulting COF file.  This is effectively 'done again' only as we
 			// are working with a different object file.
 			ssidx = -1;                                        // Initialise segment index
 			tsegoffset = dsegoffset = bsegoffset = 0;          // Initialise segment offsets
@@ -281,8 +284,9 @@ int dosym(struct OFILE * ofile)
 			if (type == 0x03000000)
 				type = 0x02000000;          // Reset external flag if absolute
 
-			// If the global/external has a value then update that vaule in accordance with the
-			// segment sizes of the object file it originates from
+			// If the global/external has a value then update that vaule in
+			// accordance with the segment sizes of the object file it
+			// originates from
 			if (hptr->h_value)
 			{
 				switch (hptr->h_type & 0x0E000000)
@@ -302,7 +306,8 @@ int dosym(struct OFILE * ofile)
 			}
 		}
 
-		// Process and update the value dependant on whether the symbol is a debug symbol or not
+		// Process and update the value dependant on whether the symbol is a
+		// debug symbol or not
 		if (type & 0xF0000000)
 		{                               // DEBUG SYMBOL
 			// Set the correct debug symbol base address (TEXT segment)
@@ -327,9 +332,11 @@ int dosym(struct OFILE * ofile)
 			putlong(symptr + 8, value);
 		}
 		else
-		{                                              // NON-DEBUG SYMBOL
-			// Now make modifications to the symbol value, local or global, based on the segment sizes
-			// of the object file currently being processed.
+		{
+			// NON-DEBUG SYMBOL
+			// Now make modifications to the symbol value, local or global,
+			// based on the segment sizes of the object file currently being
+			// processed.
 			switch (type & T_SEG)
 			{
 			case 0x02000000:                                // Absolute value
@@ -355,7 +362,7 @@ int dosym(struct OFILE * ofile)
 					value = bbase + bsegoffset + value;
 				else
 					value = bbase + bsegoffset
-						+(value - (ofile->o_header.tsize + ofile->o_header.dsize));
+						+ (value - (ofile->o_header.tsize + ofile->o_header.dsize));
 
 				putlong(symptr + 8, value);
 				break;
@@ -380,7 +387,9 @@ int dosym(struct OFILE * ofile)
 		}
 	}
 
-	dosymi++;                                                // Increment dosym() processsing
+	// Increment dosym() processsing
+	dosymi++;
+
 	return 0;
 }
 
@@ -584,7 +593,9 @@ int dounresolved(void)
 		if (ost_add(hptr->h_sym, T_EXT, 0L) == -1)
 			return 1;
 
-//printf("dounresolved(): added %s\n",hptr->h_sym);
+		if (vflag > 1)
+			printf("dounresolved(): added %s\n", hptr->h_sym);
+
 		htemp = hptr->h_next;                   // Temporarily get ptr to next record
 		free(hptr);                             // Free current record
 		hptr = htemp;                           // Make next record ptr, current
@@ -1249,23 +1260,25 @@ int write_ofile(struct OHEADER * header)
 		// Absolute (ABS) symbol/string table
 		else
 		{
-			// The symbol and string table have been created as part of the dosym() function and the
-			// output symbol and string tables are in COF format. For an ABS file we need to process
-			// through this to create the 14 character long combined symbol and string table.
-			// Format of symbol table in ABS: AAAAAAAATTVVVV, where (A)=STRING, (T)=TYPE & (V)=VALUE
+			// The symbol and string table have been created as part of the
+			// dosym() function and the output symbol and string tables are in
+			// COF format. For an ABS file we need to process through this to
+			// create the 14 character long combined symbol and string table.
+			// Format of symbol table in ABS: AAAAAAAATTVVVV, where (A)=STRING,
+			// (T)=TYPE & (V)=VALUE
 
 			for(i=0; i<ost_index; i++)
 			{
-				memset(symbol, 0, 14);                             // Initialise symbol record
-				abstype = 0;                                       // Initialise ABS symbol type
-				slen = 0;                                          // Initialise symbol string length
-				index = getlong(ost + (i * 12));                   // Get symbol index
-				type  = getlong((ost + (i * 12)) + 4);             // Get symbol type
+				memset(symbol, 0, 14);				// Initialise symbol record
+				abstype = 0;						// Initialise ABS symbol type
+				slen = 0;							// Initialise symbol string length
+				index = getlong(ost + (i * 12));	// Get symbol index
+				type  = getlong((ost + (i * 12)) + 4);	// Get symbol type
 
 				if (type & 0xF0000000)
 					continue;                    // Not doing debug symbols
 
-				value = getlong((ost + (i * 12)) + 8);             // Get symbol value
+				value = getlong((ost + (i * 12)) + 8);	// Get symbol value
 				slen = strlen(oststr + index);
 
 				// Get symbol string (maximum 8 chars)
@@ -1296,8 +1309,8 @@ int write_ofile(struct OHEADER * header)
 					break;
 				}
 
-				putword(symbol + 8, abstype);                      // Write back new ABS type
-				putlong(symbol + 10, value);                       // Write back value
+				putword(symbol + 8, abstype);		// Write back new ABS type
+				putlong(symbol + 10, value);		// Write back value
 
 				if (fwrite(symbol, 14, 1, fd) != 1) goto werror;    // Write symbol record
 			}
@@ -1310,12 +1323,12 @@ int write_ofile(struct OHEADER * header)
 		printf("Close error on output file %s\n",ofile);
 		return 1;
 	}
-	else
-		return 0;
 
-werror:                                                  // OMG! Why did Atari use these :)
+	return 0;
+
+werror: // OMG! Why did Atari use these :)
 	printf("Write error on output file %s\n", ofile);
-	fclose(fd);			                                       // Try to close output file anyway
+	fclose(fd);			// Try to close output file anyway
 	return 1;
 }
 
@@ -1471,17 +1484,17 @@ int getval(char * string, int * value)
 //
 struct OHEADER * make_ofile()
 {
-	unsigned tptr, dptr, bptr;                               // Bases in runtime model
-	int ret = 0;                                             // Return value
-	struct OFILE * otemp, * oprev, * ohold;                  // Object file list pointers
-	struct OHEADER * header;                                 // Output header pointer
+	unsigned tptr, dptr, bptr;					// Bases in runtime model
+	int ret = 0;								// Return value
+	struct OFILE * otemp, * oprev, * ohold;		// Object file list pointers
+	struct OHEADER * header;					// Output header pointer
 
-	textsize = datasize = bsssize = 0;                       // Initialise cumulative segment sizes
+	textsize = datasize = bsssize = 0;			// Initialise cumulative segment sizes
 
-	// For each object file, accumulate the sizes of the segments but remove those
-	// object files which are unused
-	oprev = NULL;                                            // Init previous obj file list ptr
-	otemp = olist;                                           // Set temp pointer to object file list
+	// For each object file, accumulate the sizes of the segments but remove
+	// those object files which are unused
+	oprev = NULL;								// Init previous obj file list ptr
+	otemp = olist;								// Set temp pointer to object file list
 
 	while (otemp != NULL)
 	{
@@ -1520,7 +1533,7 @@ struct OHEADER * make_ofile()
 			}
 		}
 
-		otemp = otemp->o_next;                                // Go to next object file list pointer
+	otemp = otemp->o_next;						// Go to next object file list pointer
 	}
 
 	// Update base addresses and create symbols _TEXT_E, _DATA_E and _BSS_E
@@ -1570,7 +1583,7 @@ struct OHEADER * make_ofile()
 	if (dounresolved())
 		return NULL;
 
-	tptr = 0;                                                // Initialise base addresses
+	tptr = 0;								// Initialise base addresses
 	dptr = 0;
 	bptr = 0;
 
@@ -1661,7 +1674,7 @@ struct OHEADER * make_ofile()
 //
 int add_to_hlist(struct HREC ** hptr, char * sym, struct OFILE * ofile, long value, int type)
 {
-	struct HREC * htemp;                                      // Temporary hash record pointer
+	struct HREC * htemp;					// Temporary hash record pointer
 	int i;
 
 	// Attempt to allocate new hash record
@@ -1674,18 +1687,18 @@ int add_to_hlist(struct HREC ** hptr, char * sym, struct OFILE * ofile, long val
 	// Shamus: Moar testing...
 	if (vflag > 1)
 	{
-		printf("add_to_hlist(): hptr=$%08X, sym=\"%s\", ofile=$%08X, value=%li, type=%i", (unsigned int)hptr, sym, (unsigned int)ofile, value, type);
+		printf("add_to_hlist(): hptr=$%08X, sym=\"%s\", ofile=$%08X, value=$%X, type=$%X\n", (unsigned int)hptr, sym, (unsigned int)ofile, value, type);
 	}
 
 	for(i=0; i<SYMLEN; i++)
 		htemp->h_sym[i] = '\0';
 
-	strcpy(htemp->h_sym, sym);                               // Populate hash record
+	strcpy(htemp->h_sym, sym);				// Populate hash record
 	htemp->h_ofile = ofile;
 	htemp->h_value = value;
 	htemp->h_type = type;
 
-	htemp->h_next = *hptr;                                   // Update hash record pointers
+	htemp->h_next = *hptr;					// Update hash record pointers
 	*hptr = htemp;
 
 	return 0;
@@ -1749,7 +1762,7 @@ int hash_add(char * sym, long type, long value, struct OFILE * ofile)
 
 	if (vflag > 1)
 	{
-		printf("hash_add(%s,%s,%lx,", sym, ofile->o_name,value);
+		printf("hash_add(%s,%s,%lx,", sym, ofile->o_name, value);
 		printf("%x,%s)\n", (unsigned int)type, (flag ? "GLOBAL" : "COMMON"));
 	}
 
@@ -1758,14 +1771,13 @@ int hash_add(char * sym, long type, long value, struct OFILE * ofile)
 		return add_to_hlist(&htable[dohash(sym)], sym, ofile, value, type);
 	}
 
-
 	// Already there!
 	if (iscommon(type) && !iscommon(hptr->h_type))
 	{
 		// Mismatch: global came first; warn and keep the global one
 		if (wflag)
 		{
-			printf("Warning: %s: global from ",sym);
+			printf("Warning: %s: global from ", sym);
 			put_name(hptr->h_ofile);
 			printf(" used, common from ");
 			put_name(ofile);
@@ -1791,8 +1803,9 @@ int hash_add(char * sym, long type, long value, struct OFILE * ofile)
 		hptr->h_ofile = ofile;
 		hptr->h_value = value;
 	}
+	// They're both global
 	else if (flag)
-	{			                                 // They're both global
+	{
 		// Global exported by another ofile; warn and make this one extern
 		if (wflag)
 		{
@@ -1805,8 +1818,9 @@ int hash_add(char * sym, long type, long value, struct OFILE * ofile)
 
 		putword(sym + 8, ABST_EXTERN);
 	}
+	// They're both common
 	else
-	{			                                          // They're both common
+	{
 		if (hptr->h_value < value)
 		{
 			hptr->h_value = value;
