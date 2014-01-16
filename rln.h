@@ -50,9 +50,9 @@
 #include <unistd.h>
 #endif
 
-#define MAJOR        1                          // Major version number
-#define MINOR        2                          // Minor version number
-#define PATCH        1                          // Patch release number
+#define MAJOR   1			// Major version number
+#define MINOR   2			// Minor version number
+#define PATCH   2			// Patch release number
 
 #ifdef WIN32
 #define PLATFORM     "Win32"                    // Release platform - Windows
@@ -75,13 +75,13 @@
 // Macro to swap the 16-bit words of a 32-bit integer
 #define _SWAPWORD(x) (((unsigned)(x) >> 16) | ((unsigned)(x) << 16))
 
-#define FARGSIZE     1024                       // Number of chars in filename argument
-#define FNLEN        1024                       // Size of a file name
-#define NHANDLES     256                        // Number of open file handles at once
-#define OST_BLOCK    0x400000                   // Output symbol table block (4MB)
-#define DSTSEG_D     1                          // Include file destination seg (DATA)
-#define DSTSEG_T     2                          // Include file destination seg (TEXT)
-#define MAXARGS 256                             // Max number of args in a command file
+#define FARGSIZE     1024				// Number of chars in filename argument
+#define FNLEN        1024				// Size of a file name
+#define NHANDLES     256				// Number of open file handles at once
+#define OST_BLOCK    0x400000			// Output symbol table block (4MB)
+#define DSTSEG_D     1					// Include file destination seg (DATA)
+#define DSTSEG_T     2					// Include file destination seg (TEXT)
+#define MAXARGS 256						// Max number of args in a command file
 
 // Headers
 
@@ -97,28 +97,28 @@
 
 struct OHEADER
 {
-	uint32_t magic;								// $0107 for .o, $601B for abs
+	uint32_t magic;					// $0107 for .o, $601B for abs
 	uint32_t tsize;
 	uint32_t dsize;
 	uint32_t bsize;
 	uint32_t ssize;
 	union {
-		struct {								// For .o 
-			uint32_t tsize;						// Text relocation size
-			uint32_t dsize;						// Data relocation size
+		struct {					// For .o 
+			uint32_t tsize;			// Text relocation size
+			uint32_t dsize;			// Data relocation size
 			uint8_t reserved[12];
 		} reloc;
-		struct {								// For .abs 
-			uint32_t stksize;					// Unused 
-			uint32_t tstart;					// Start of TEXT 
-			uint32_t rbflag;					// -1 if no fixups at all 
-			uint32_t dstart;					// Start of DATA 
-			uint32_t bstart;					// Start of BSS
+		struct {					// For .abs 
+			uint32_t stksize;		// Unused 
+			uint32_t tstart;		// Start of TEXT 
+			uint32_t rbflag;		// -1 if no fixups at all 
+			uint32_t dstart;		// Start of DATA 
+			uint32_t bstart;		// Start of BSS
 		} abs;
 	} absrel;
-	uint8_t * ostbase;							// Base of output symbol table 
-	uint32_t fsize;								// Length of fixups
-	uint8_t * fixups;							// Start of fixups 
+	uint8_t * ostbase;				// Base of output symbol table 
+	uint32_t fsize;					// Length of fixups
+	uint8_t * fixups;				// Start of fixups 
 };
 
 #define new_oheader()   (struct OHEADER *)malloc((uint32_t)sizeof(struct OHEADER))
@@ -131,7 +131,7 @@ struct ARHEADER
 	uint8_t a_gid;
 	uint16_t a_fimode;
 	uint32_t a_fsize;
-	uint16_t reserved;							// Two bytes zeroes btw header & file 
+	uint16_t reserved;				// Two bytes zeroes btw header & file 
 };
 
 #define new_arheader()  (struct ARHEADER *)malloc((uint32_t)sizeof(struct ARHEADER))
@@ -140,14 +140,14 @@ struct ARHEADER
 
 struct OFILE
 {
-	uint8_t o_name[FNLEN];						// Fixed-length names
-	uint8_t o_arname[FNLEN];					// Name of archive this is from
-	struct OFILE * o_next;						// Next object file
-	uint32_t o_tbase, o_dbase, o_bbase;			// Computed bases for this ofile
-	uint16_t o_symstart;						// First sym in image is nth in out
-	uint16_t o_flags;							// Flags (see O_*)
-	struct OHEADER o_header;					// Header of this file
-	uint8_t * o_image;							// Image of this file
+	uint8_t o_name[FNLEN];				// Fixed-length names
+	uint8_t o_arname[FNLEN];			// Name of archive this is from
+	struct OFILE * o_next;				// Next object file
+	uint32_t o_tbase, o_dbase, o_bbase;	// Computed bases for this ofile
+	uint16_t o_symstart;				// First sym in image is nth in out
+	uint16_t o_flags;					// Flags (see O_*)
+	struct OHEADER o_header;			// Header of this file
+	uint8_t * o_image;					// Image of this file
 };
 
 #define new_ofile()  (struct OFILE *)malloc((uint32_t)sizeof(struct OFILE))
@@ -155,7 +155,7 @@ struct OFILE
 // Flags in an Object File's o_flags field
 // O_USED: means this ofile is used or is on the command line or in a -x
 #define O_USED       0x0001
-#define O_ARCHIVE    0x0002                     // This is a dummy archive entry
+#define O_ARCHIVE    0x0002			// This is a dummy archive entry
 
 // Symbol Record
 
@@ -163,11 +163,11 @@ struct OFILE
 // linker for the output symbol table (that's why there are type and value
 // fields, unused in builddir)
 
-#define SYMLEN       100                        // Symbol name size (incl null)
+#define SYMLEN       100			// Symbol name size (incl null)
 
 struct SYMREC
 {
-	uint8_t s_name[SYMLEN];						// Including null terminator 
+	uint8_t s_name[SYMLEN];			// Including null terminator 
 	uint16_t s_type;
 	uint32_t s_value;
 	struct SYMREC * s_next;
