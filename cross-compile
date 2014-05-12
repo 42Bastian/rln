@@ -1,0 +1,12 @@
+#!/bin/bash
+#
+# Short script to do cross compilation with MXE on Linux
+#
+# by James Hammons
+# (C) 2012 Underground Software
+#
+echo "Cross compiling for Win32..."
+export PATH=/opt/mxe/usr/bin:$PATH
+make CROSS=i686-pc-mingw32-
+rel=`git log -1 --pretty=format:%ci | cut -d ' ' -f 1 | tr -d -`
+mv rln rln.exe && upx -9v rln.exe && zip -9v rln-$rel.zip rln.exe

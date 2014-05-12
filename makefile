@@ -31,12 +31,12 @@ OBJS = rln.o
 
 .c.o: 
 	$(RM) $@ 
-	$(CC) $(CFLAGS) -c $*.c 
+	$(CROSS)$(CC) $(CFLAGS) -c $*.c 
 
 all: $(PROGNAME) 
 
 $(PROGNAME) : $(OBJS) 
-	$(CC) $(CFLAGS) -o $(PROGNAME) $(OBJS) $(LIBS) 
+	$(CROSS)$(CC) $(CFLAGS) -o $(PROGNAME) $(OBJS) $(LIBS) 
 
 clean: 
-	$(RM) $(OBJS) $(PROGNAME) *~ 
+	$(RM) $(OBJS) $(PROGNAME) $(PROGNAME).exe *~ 
