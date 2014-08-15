@@ -2977,6 +2977,22 @@ int doargs(int argc, char * argv[])
 
 				wflag = 1;
 				break;
+			case 'y':
+			case 'Y':
+				if (i >= argc)
+				{
+					printf("No directory filename following -y switch\n");
+					return 1;
+				}
+
+				if (strlen(argv[i]) > FARGSIZE * 3)
+				{
+					printf("Directory file name too long (sorry!)\n");
+					return 1;
+				}
+
+				strcpy(libdir, argv[i++]);
+				break;
 			case 'z':
 			case 'Z':					// Suppress banner flag
 				if (zflag)
