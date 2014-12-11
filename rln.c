@@ -2315,8 +2315,8 @@ int flush_handles(void)
 			lseek(handle[i], 0L, 0);	// Reset to start of input file
 //			test = getlong(magic); printf("Magic Number is 0x%08X\n", test);
 
-			// Look for RMAC/MAC object files
-			if (getlong(magic) == 0x00000107)
+			// Look for RMAC/MAC/GCC ($20107) object files
+			if ((getlong(magic) == 0x00000107) || (getlong(magic) == 0x00020107))
 			{
 				// Process input object file
 				if (doobject(name[i], handle[i], 0L))
