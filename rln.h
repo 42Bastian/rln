@@ -51,8 +51,8 @@
 #endif
 
 #define MAJOR   1			// Major version number
-#define MINOR   2			// Minor version number
-#define PATCH   3			// Patch release number
+#define MINOR   3			// Minor version number
+#define PATCH   0			// Patch release number
 
 #ifdef WIN32
 #define PLATFORM     "Win32"                    // Release platform - Windows
@@ -75,13 +75,13 @@
 // Macro to swap the 16-bit words of a 32-bit integer
 #define _SWAPWORD(x) (((unsigned)(x) >> 16) | ((unsigned)(x) << 16))
 
-#define FARGSIZE     1024				// Number of chars in filename argument
-#define FNLEN        1024				// Size of a file name
-#define NHANDLES     256				// Number of open file handles at once
-#define OST_BLOCK    0x400000			// Output symbol table block (4MB)
-#define DSTSEG_D     1					// Include file destination seg (DATA)
-#define DSTSEG_T     2					// Include file destination seg (TEXT)
-#define MAXARGS 256						// Max number of args in a command file
+#define FARGSIZE     1024			// Number of chars in filename argument
+#define FNLEN        1024			// Size of a file name
+#define NHANDLES     256			// Number of open file handles at once
+#define OST_BLOCK    0x400000		// Output symbol table block (4MB)
+#define DSTSEG_D     1				// Include file destination seg (DATA)
+#define DSTSEG_T     2				// Include file destination seg (TEXT)
+#define MAXARGS      256			// Max number of args in a command file
 
 // Headers
 
@@ -97,7 +97,7 @@
 
 struct OHEADER
 {
-	uint32_t magic;					// $0107 for .o, $601B for abs
+	uint32_t magic;					// $0107 for .o, $601B for .abs
 	uint32_t tsize;
 	uint32_t dsize;
 	uint32_t bsize;
@@ -148,6 +148,7 @@ struct OFILE
 	uint16_t o_flags;					// Flags (see O_*)
 	struct OHEADER o_header;			// Header of this file
 	uint8_t * o_image;					// Image of this file
+	uint8_t isArchiveFile;				// Temporary extra flag
 };
 
 #define new_ofile()  (struct OFILE *)malloc((uint32_t)sizeof(struct OFILE))
