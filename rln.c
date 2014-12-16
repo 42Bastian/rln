@@ -2371,7 +2371,10 @@ int DoArchive(char * fname, int fd)
 			objSize[i] = ptr[48 + i];
 		}
 
-		if (HasDotOSuffix(objName))
+		// Need to fix this so that the " <number>" files are properly
+		// expanded to their filenames (seems to be either "//" or
+		// "ARFILENAMES/")
+		if ((HasDotOSuffix(objName)) || (strlen(objName) == 0))
 		{
 //printf("Processing object \"%s\" (size == %i, obj_index == %i)...\n", objName, atoi(objSize), obj_index);
 			strcpy(obj_fname[obj_index], objName);
