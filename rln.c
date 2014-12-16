@@ -53,8 +53,8 @@ struct OFILE * plist = NULL;		// Object image list pointer
 struct OFILE * plast;				// Last object image list pointer
 struct OFILE * olist = NULL;		// Pointer to first object file in list
 struct OFILE * olast;				// Pointer to last object file in list
-char obj_fname[2048][FNLEN];		// Object file names
-unsigned obj_segsize[2048][3];		// Object file seg sizes; TEXT,DATA,BSS
+char obj_fname[16384][FNLEN];		// Object file names
+unsigned obj_segsize[16384][3];		// Object file seg sizes; TEXT,DATA,BSS
 unsigned obj_index = 0;				// Object file index/count
 char * arPtr[512];
 uint32_t arIndex = 0;
@@ -2040,12 +2040,12 @@ int dolist(void)
 	for(uptr=unresolved; uptr!=NULL; )
 	{
 		if (vflag > 1)
-			printf("lookup(%s) => ",uptr->h_sym);
+			printf("lookup(%s) => ", uptr->h_sym);
 
 		if ((htemp = lookup(uptr->h_sym)) != NULL)
 		{
 			if (vflag > 1)
-				printf("%s in %s (=$%06X)\n", isglobal(htemp->h_type) ? "global" : "common", htemp->h_ofile->o_name, htemp->h_value);
+				printf("%s in %s (=$%06X)\n", (isglobal(htemp->h_type) ? "global" : "common"), htemp->h_ofile->o_name, htemp->h_value);
 
 			htemp->h_ofile->o_flags |= O_USED;
 
@@ -2064,7 +2064,9 @@ int dolist(void)
 		}
 		else
 		{
-			printf("NULL\n");
+			if (vflag > 1)
+				printf("NULL\n");
+
 			prev = uptr;
 			uptr = uptr->h_next;
 		}
@@ -2291,6 +2293,21 @@ int DoObject(char * fname, int fd, char * ptr)
 	return AddToProcessingList(ptr, fname, 0);
 }
 
+
+//
+// What it says on the tin: check for a .o suffix on the passed in string
+//
+uint8_t HasDotOSuffix(char * s)
+{
+	char * temp = strrchr(s, '.');
+
+	if ((temp == NULL) || (strncmp(temp, ".o", 2) != 0))
+		return 0;
+
+	return 1;
+}
+
+
 //
 // Process an ar archive file (*.a)
 //
@@ -2323,15 +2340,18 @@ int DoArchive(char * fname, int fd)
 	char objName[17];
 	char objSize[11];
 	int i;
+//printf("\nProcessing AR file \"%s\"...\n", fname);
+	ptr += 8;
 
 	// Loop through all objects in the archive and process them
 	do
 	{
-		objName[16] = objSize[10] = 0;
+		memset(objName, 0, 17);
+		objSize[10] = 0;
 
 		for(i=0; i<16; i++)
 		{
-			if (ptr[i] == '/')
+			if ((ptr[i] == '/') || (ptr[i] == ' '))
 			{
 				objName[i] = 0;
 				break;
@@ -2351,8 +2371,9 @@ int DoArchive(char * fname, int fd)
 			objSize[i] = ptr[48 + i];
 		}
 
-		if (objName[0] != 0)
+		if (HasDotOSuffix(objName))
 		{
+//printf("Processing object \"%s\" (size == %i, obj_index == %i)...\n", objName, atoi(objSize), obj_index);
 			strcpy(obj_fname[obj_index], objName);
 			obj_segsize[obj_index][0] = (getlong(ptr + 60 + 4) + secalign) & ~secalign;
 			obj_segsize[obj_index][1] = (getlong(ptr + 60  + 8) + secalign) & ~secalign;
@@ -2394,7 +2415,7 @@ int ProcessObjectFiles(void)
 		{
 			// Attempt to read file magic number
 			// OBJECT/ARCHIVE FILES 
-			if (read(handle[i], magic, 4) != 4)
+			if (read(handle[i], magic, 8) != 8)
 			{
 				printf("Error reading file %s\n", name[i]);
 				close(handle[i]);
@@ -2411,7 +2432,7 @@ int ProcessObjectFiles(void)
 					return 1;
 			}
 			// Otherwise, look for an object archive file
-			else if (strncmp(magic, "!<arch>\0x0A", 8) == 0)
+			else if (strncmp(magic, "!<arch>\x0A", 8) == 0)
 			{
 				if (DoArchive(name[i], handle[i]))
 					return 1;
@@ -2420,6 +2441,12 @@ int ProcessObjectFiles(void)
 			{
 				// Close file and error
 				printf("%s is not a supported object or archive file\n", name[i]);
+#if 0
+printf("Magic number: [ ");
+for(i=0; i<8; i++)
+	printf("%02X ", (uint8_t)magic[i]);
+printf("]\n");
+#endif
 				close(handle[i]);
 				return 1;
 			}
