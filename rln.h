@@ -4,8 +4,8 @@
 // Copyright (C) 199x Allan K. Pratt, 2011 Reboot & Friends
 //
 
-#ifndef __RLH_H__
-#define __RLH_H__
+#ifndef __RLN_H__
+#define __RLN_H__
 
 // Required Include Files
 
@@ -52,7 +52,7 @@
 
 #define MAJOR   1			// Major version number
 #define MINOR   3			// Minor version number
-#define PATCH   0			// Patch release number
+#define PATCH   1			// Patch release number
 
 #ifdef WIN32
 #define PLATFORM     "Win32"                    // Release platform - Windows
@@ -67,13 +67,8 @@
 // Command link flag, warning macro
 #define warn(x, f) printf("Warning: repeated flag `%c'%s\n", x, f ? "; previous one(s) ignored." : ".")
 
-// Macro for max: good because longs, shorts, or pointers can be compared
-#ifndef MAX
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
-#endif
-
 // Macro to swap the 16-bit words of a 32-bit integer
-#define _SWAPWORD(x) (((unsigned)(x) >> 16) | ((unsigned)(x) << 16))
+#define _SWAPWORD(x) (((uint32_t)(x) >> 16) | ((uint32_t)(x) << 16))
 
 #define FARGSIZE     1024			// Number of chars in filename argument
 #define FNLEN        1024			// Size of a file name
@@ -121,7 +116,7 @@ struct OHEADER
 	uint8_t * fixups;				// Start of fixups 
 };
 
-#define new_oheader()   (struct OHEADER *)malloc((uint32_t)sizeof(struct OHEADER))
+#define new_oheader()   (struct OHEADER *)malloc(sizeof(struct OHEADER))
 
 struct ARHEADER
 {
@@ -131,10 +126,10 @@ struct ARHEADER
 	uint8_t a_gid;
 	uint16_t a_fimode;
 	uint32_t a_fsize;
-	uint16_t reserved;				// Two bytes zeroes btw header & file 
+	uint16_t reserved;				// Two bytes zeroes btwn header & file 
 };
 
-#define new_arheader()  (struct ARHEADER *)malloc((uint32_t)sizeof(struct ARHEADER))
+#define new_arheader()  (struct ARHEADER *)malloc(sizeof(struct ARHEADER))
 
 // Object File Structure and Related Items
 
@@ -151,7 +146,7 @@ struct OFILE
 	uint8_t isArchiveFile;				// Temporary extra flag
 };
 
-#define new_ofile()  (struct OFILE *)malloc((uint32_t)sizeof(struct OFILE))
+#define new_ofile()  (struct OFILE *)malloc(sizeof(struct OFILE))
 
 // Flags in an Object File's o_flags field
 // O_USED: means this ofile is used or is on the command line or in a -x
@@ -164,7 +159,7 @@ struct OFILE
 // linker for the output symbol table (that's why there are type and value
 // fields, unused in builddir)
 
-#define SYMLEN       100			// Symbol name size (incl null)
+#define SYMLEN       100			// Symbol name size (incl. null)
 
 struct SYMREC
 {
@@ -174,7 +169,7 @@ struct SYMREC
 	struct SYMREC * s_next;
 };
 
-#define new_symrec() (struct SYMREC *)malloc((uint32_t)sizeof(struct SYMREC))
+#define new_symrec() (struct SYMREC *)malloc(sizeof(struct SYMREC))
 
 // Hash Record
 
@@ -193,9 +188,9 @@ struct HREC
 	uint32_t h_type;
 };
 
-#define new_hrec()   (struct HREC *)malloc((uint32_t)sizeof(struct HREC))
+#define new_hrec()   (struct HREC *)malloc(sizeof(struct HREC))
 
-#define NBUCKETS     1024                       // Number of hash buckets
+#define NBUCKETS     1024   // Number of hash buckets
 
 // Bit definitions for the type field of a symbol.
 //
@@ -204,16 +199,16 @@ struct HREC
 // format, in the first two bytes of the field) which is the index of the
 // symbol in the output symbol table.
 //
-// If that field is -1, it means you have to look this symbol up in the
-// ost to get its index.  This happens when the symbol was extern to this
-// module and defined by a LATER module.
+// If that field is -1, it means you have to look this symbol up in the OST to
+// get its index. This happens when the symbol was extern to this module and
+// defined by a LATER module.
 //
-// The upshot is that a symbol which isn't in the ost has its type & value
-// fields intact, while a symbol which is in the ost has T_OST set and
-// its index in its value field (or -1 if you have to look it up).
-// When producing the output fixups, you either output a symbol fixup with
-// the new index (for a partial link), or resolve the symbol based on its
-// type & value from the output symbol table.
+// The upshot is that a symbol which isn't in the OST has its type & value
+// fields intact, while a symbol which is in the OST has ABST_OST set and its
+// index in its value field (or -1 if you have to look it up).
+// When producing the output fixups, you either output a symbol fixup with the
+// new index (for a partial link), or resolve the symbol based on its type &
+// value from the output symbol table.
 
 #define ABST_DEFINED    0x8000
 #define ABST_EQUATED    0x4000
@@ -225,18 +220,19 @@ struct HREC
 #define ABST_BSS        0x0100	/* bss-based relocatable  */
 #define ABST_FILE       0x0080	// file symbol
 #define ABST_ARCHIVE    0x0040	// only when FILE set: archive file or no
-#define ABST_OST        0x0001	// private: "symbol is in ost": see above
-#define T_COMMON	(T_GLOBAL | T_EXTERN)
-#define T_SEG		(T_DATA | T_TEXT | T_BSS)   // segment bits
+#define ABST_OST        0x0001	// private: "symbol is in OST": see above
+//#define T_COMMON	(T_GLOBAL | T_EXTERN)
 
 // Symbol Table - Type Definitions
+// N.B.: T_EXT can be ORed with any of T_ABS, T_TEXT, TDATA, or T_BSS!
 
-#define T_UNDF          0x00000000     // Undefined Symbol
-#define T_EXT           0x01000000     // External Bit, OR'ed In (Global)
-#define T_ABS           0x02000000     // Absolute Symbol (Equated)
-#define T_TEXT          0x04000000     // TEXT Segment
-#define T_DATA          0x06000000     // DATA Segment
-#define T_BSS           0x08000000     // BSS Segment
+#define T_UNDF		0x00000000     // Undefined Symbol
+#define T_EXT		0x01000000     // External Bit, OR'ed In (Global)
+#define T_ABS		0x02000000     // Absolute Symbol (Equated)
+#define T_TEXT		0x04000000     // TEXT Segment
+#define T_DATA		0x06000000     // DATA Segment
+#define T_BSS		0x08000000     // BSS Segment
+#define T_SEG		(T_DATA | T_TEXT | T_BSS)   // segment bits
 
 // These macros are used with the TYPE field of a SYMBOL.
 /*
@@ -244,11 +240,10 @@ Absolutes (equates) can't be externals (line 434)
 -- they are non-relocatable
 */
 
-//#define iscommon(type) (((type) & T_EXT) == T_EXT)
 #define iscommon(type) (((type) & T_EXT) == 0)
-#define isglobal(type) (((type) & T_EXT) == T_EXT)
-#define isextern(type) (((type) & T_EXT) == T_EXT)
 #define islocal(type)  (((type) & T_EXT) == 0)
+#define isglobal(type) ((type) & T_EXT)
+#define isextern(type) ((type) & T_EXT)
 
 /*
 Shamus:
@@ -264,22 +259,5 @@ complete, total, and utter failure. :-)
 //					(*(long *)((a) + sizeof(long)) == \
 //					*(long *)((b) + sizeof(long))))
 
-// Function Prototypes
-
-int doargs(int, char *[]);
-char * make_string(char *);
-void put_name(struct OFILE *);
-int flush_handles(void);
-void symcopy(char *, char *);
-int ost_add(char *,int, long);
-int add_fixup(long);
-void display_help(void);
-void display_version(void);
-int pladd(char *, char *);
-char * path_tail(char *);
-int dolist(void);
-int segmentpad(FILE *, long, int);
-int ost_lookup(char *);
-
-#endif // __RLH_H__
+#endif // __RLN_H__
 
