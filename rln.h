@@ -55,12 +55,12 @@
 #define PATCH   1			// Patch release number
 
 #ifdef WIN32
-#define PLATFORM     "Win32"                    // Release platform - Windows
+#define PLATFORM     "Win32"		// Release platform - Windows
 #else
 #ifdef __GCCUNIX__
-#define PLATFORM     "OSX/Linux"                // Release platform - MAC OSX or Linux
+#define PLATFORM     "OSX/Linux"	// Release platform - MAC OSX or Linux
 #else
-#define PLATFORM     "Unknown"                  // Release platform - Not Specified
+#define PLATFORM     "Unknown"		// Release platform - Not Specified
 #endif
 #endif
 

@@ -229,11 +229,14 @@ int DoSymbol(struct OFILE * ofile)
 		{
 			// Obtain the string table index for the relocation symbol, look
 			// for it in the globals hash table to obtain information on that
-			// symbol. For the hash calculation to work correctly it must be
-			// placed in a 'clean' string before looking it up.
+			// symbol.
+#if 0
 			memset(sym, 0, SYMLEN);
 			strcpy(sym, symend + index);
 			hptr = LookupHREC(sym);
+#else
+			hptr = LookupHREC(symend + index);
+#endif
 
 			if (hptr == NULL)
 			{
@@ -376,7 +379,7 @@ int DoSymbol(struct OFILE * ofile)
 		}
 	}
 
-	// Increment DoSymbol() processsing
+	// Increment dosymi processsing
 	dosymi++;
 
 	return 0;
@@ -408,7 +411,7 @@ void FreeHashes(void)
 // Add all global and external symbols to the output symbol table
 // [This is confusing--is it adding globals or locals? common == local!
 //  but then again, we see this in the header:
-//  #define T_COMMON  (T_GLOBAL | T_EXTERN)]
+//  #define T_COMMON  (T_GLOBAL | T_EXTERN) but that could be just bullshit.]
 //
 long DoCommon(void)
 {
@@ -1084,7 +1087,6 @@ int segmentpad(FILE * fd, long segsize, int value)
 //
 int write_ofile(struct OHEADER * header)
 {
-	FILE * fd;							// File descriptor
 	unsigned osize;						// Object segment size
 	struct OFILE * otemp;				// Object file pointer
 	int i, j;							// Iterators
@@ -1108,11 +1110,11 @@ int write_ofile(struct OHEADER * header)
 			strcat(ofile, ".o");		// Object files (partial linking etc)
 	}
 
-	fd = fopen(ofile, "wb");			// Attempt to open output file
+	FILE * fd = fopen(ofile, "wb");		// Attempt to open output file
 
 	if (!fd)
 	{
-		printf("Can't open output file %s\n", ofile);	// Error opening output file
+		printf("Can't open output file %s\n", ofile);
 		return 1;
 	}
 
@@ -1134,77 +1136,77 @@ int write_ofile(struct OHEADER * header)
 		// additional code will need to be added for ABS and partial linking.
 
 		// Build the COF_HDR
-		putword(himage + 0,   0x0150               );         // Magic Number (0x0150)
-		putword(himage + 2,   0x0003               );         // Sections Number (3)
-		putlong(himage + 4,   0x00000000           );         // Date (0L)
-		putlong(himage + 8,   dsoff + header->dsize);         // Offset to Symbols Section
-		putlong(himage + 12,  ost_index);                     // Number of Symbols
-		putword(himage + 16,  0x001C               );         // Size of RUN_HDR (0x1C)
-		putword(himage + 18,  0x0003               );         // Executable Flags (3)
+		putword(himage + 0,   0x0150               ); // Magic Number (0x0150)
+		putword(himage + 2,   0x0003               ); // Sections Number (3)
+		putlong(himage + 4,   0x00000000           ); // Date (0L)
+		putlong(himage + 8,   dsoff + header->dsize); // Offset to Symbols Section
+		putlong(himage + 12,  ost_index);             // Number of Symbols
+		putword(himage + 16,  0x001C               ); // Size of RUN_HDR (0x1C)
+		putword(himage + 18,  0x0003               ); // Executable Flags (3)
 
 		// Build the RUN_HDR
-		putlong(himage + 20,  0x00000107           );         // Magic/vstamp
-		putlong(himage + 24,  header->tsize        );         // TEXT size in bytes
-		putlong(himage + 28,  header->dsize        );         // DATA size in bytes
-		putlong(himage + 32,  header->bsize        );         // BSS size in bytes
-		putlong(himage + 36,  tbase                );         // Start of executable, normally @TEXT
-		putlong(himage + 40,  tbase                );         // @TEXT
-		putlong(himage + 44,  dbase                );         // @DATA
+		putlong(himage + 20,  0x00000107           ); // Magic/vstamp
+		putlong(himage + 24,  header->tsize        ); // TEXT size in bytes
+		putlong(himage + 28,  header->dsize        ); // DATA size in bytes
+		putlong(himage + 32,  header->bsize        ); // BSS size in bytes
+		putlong(himage + 36,  tbase                ); // Start of executable, normally @TEXT
+		putlong(himage + 40,  tbase                ); // @TEXT
+		putlong(himage + 44,  dbase                ); // @DATA
 
 		// Build the TEXT SEC_HDR
 		putlong(himage + 48,  0x2E746578           );
-		putlong(himage + 52,  0x74000000           );         // ".text"
-		putlong(himage + 56,  tbase                );         // TEXT START
-		putlong(himage + 60,  tbase                );         // TEXT START
-		putlong(himage + 64,  header->tsize        );         // TEXT size in bytes
-		putlong(himage + 68,  tsoff                );         // Offset to section data in file
-		putlong(himage + 72,  0x00000000           );         // Offset to section reloc in file (0L)
-		putlong(himage + 76,  0x00000000           );         // Offset to debug lines structures (0L)
-		putlong(himage + 80,  0x00000000           );         // Nreloc/nlnno (0L)
-		putlong(himage + 84,  0x00000020           );         // SEC_FLAGS: STYP_TEXT
+		putlong(himage + 52,  0x74000000           ); // ".text"
+		putlong(himage + 56,  tbase                ); // TEXT START
+		putlong(himage + 60,  tbase                ); // TEXT START
+		putlong(himage + 64,  header->tsize        ); // TEXT size in bytes
+		putlong(himage + 68,  tsoff                ); // Offset to section data in file
+		putlong(himage + 72,  0x00000000           ); // Offset to section reloc in file (0L)
+		putlong(himage + 76,  0x00000000           ); // Offset to debug lines structures (0L)
+		putlong(himage + 80,  0x00000000           ); // Nreloc/nlnno (0L)
+		putlong(himage + 84,  0x00000020           ); // SEC_FLAGS: STYP_TEXT
 
 		// Build the DATA SEC_HDR
 		putlong(himage + 88,  0x2E646174           );
-		putlong(himage + 92,  0x61000000           );         // ".data"
-		putlong(himage + 96,  dbase                );         // DATA START
-		putlong(himage + 100, dbase                );         // DATA START
-		putlong(himage + 104, header->dsize        );         // DATA size in bytes
-		putlong(himage + 108, dsoff                );         // Offset to section data in file
-		putlong(himage + 112, 0x00000000           );         // Offset to section reloc in file (0L)
-		putlong(himage + 116, 0x00000000           );         // Offset to debugging lines structures (0L)
-		putlong(himage + 120, 0x00000000           );         // Nreloc/nlnno (0L)
-		putlong(himage + 124, 0x00000040           );         // SEC_FLAGS: STYP_DATA
+		putlong(himage + 92,  0x61000000           ); // ".data"
+		putlong(himage + 96,  dbase                ); // DATA START
+		putlong(himage + 100, dbase                ); // DATA START
+		putlong(himage + 104, header->dsize        ); // DATA size in bytes
+		putlong(himage + 108, dsoff                ); // Offset to section data in file
+		putlong(himage + 112, 0x00000000           ); // Offset to section reloc in file (0L)
+		putlong(himage + 116, 0x00000000           ); // Offset to debugging lines structures (0L)
+		putlong(himage + 120, 0x00000000           ); // Nreloc/nlnno (0L)
+		putlong(himage + 124, 0x00000040           ); // SEC_FLAGS: STYP_DATA
 
 		// Build the BSS SEC_HDR
 		putlong(himage + 128, 0x2E627373           );
-		putlong(himage + 132, 0x00000000           );         // ".bss"
-		putlong(himage + 136, bbase                );         // BSS START
-		putlong(himage + 140, bbase                );         // BSS START
-		putlong(himage + 144, header->bsize        );         // BSS size in bytes
-		putlong(himage + 148, bsoff                );         // Offset to section data in file
-		putlong(himage + 152, 0x00000000           );         // Offset to section reloc in file (0L)
-		putlong(himage + 156, 0x00000000           );         // Offset to debugging lines structures (0L)
-		putlong(himage + 160, 0x00000000           );         // Nreloc/nlnno (0L)
-		putlong(himage + 164, 0x00000080           );         // SEC_FLAGS: STYP_BSS
+		putlong(himage + 132, 0x00000000           ); // ".bss"
+		putlong(himage + 136, bbase                ); // BSS START
+		putlong(himage + 140, bbase                ); // BSS START
+		putlong(himage + 144, header->bsize        ); // BSS size in bytes
+		putlong(himage + 148, bsoff                ); // Offset to section data in file
+		putlong(himage + 152, 0x00000000           ); // Offset to section reloc in file (0L)
+		putlong(himage + 156, 0x00000000           ); // Offset to debugging lines structures (0L)
+		putlong(himage + 160, 0x00000000           ); // Nreloc/nlnno (0L)
+		putlong(himage + 164, 0x00000080           ); // SEC_FLAGS: STYP_BSS
 
-		symoffset = 168;                                      // Update symbol offset
+		symoffset = 168;                              // Update symbol offset
 	}
 	// Absolute (ABS) header
 	else
 	{
 		// Build the ABS header
-		putword(himage + 0,   0x601B               );         // Magic Number (0x601B)
-		putlong(himage + 2,   header->tsize        );         // TEXT segment size
-		putlong(himage + 6,   header->dsize        );         // DATA segment size
-		putlong(himage + 10,  header->bsize        );         // BSS segment size
-		putlong(himage + 14,  ost_index * 14       );         // Symbol table size (?)
-		putlong(himage + 18,  0x00000000           );         //
-		putlong(himage + 22,  tbase                );         // TEXT base address
-		putword(himage + 26,  0xFFFF               );         // Flags (?)
-		putlong(himage + 28,  dbase                );         // DATA base address
-		putlong(himage + 32,  bbase                );         // BSS base address
+		putword(himage + 0,   0x601B               ); // Magic Number (0x601B)
+		putlong(himage + 2,   header->tsize        ); // TEXT segment size
+		putlong(himage + 6,   header->dsize        ); // DATA segment size
+		putlong(himage + 10,  header->bsize        ); // BSS segment size
+		putlong(himage + 14,  ost_index * 14       ); // Symbol table size (?)
+		putlong(himage + 18,  0x00000000           ); //
+		putlong(himage + 22,  tbase                ); // TEXT base address
+		putword(himage + 26,  0xFFFF               ); // Flags (?)
+		putlong(himage + 28,  dbase                ); // DATA base address
+		putlong(himage + 32,  bbase                ); // BSS base address
 
-		symoffset = 36;                                       // Update symbol offset
+		symoffset = 36;                               // Update symbol offset
 	}
 
 	// Write the header, but not if noheaderflag
@@ -1274,32 +1276,37 @@ int write_ofile(struct OHEADER * header)
 		{
 			if (header->ssize)
 			{
-				if (fwrite(ost, (ost_ptr - ost), 1, fd) != 1) goto werror;
-				if (fwrite(oststr, (oststr_ptr - oststr), 1, fd) != 1) goto werror;
+				if (fwrite(ost, (ost_ptr - ost), 1, fd) != 1)
+					goto werror;
+
+				if (fwrite(oststr, (oststr_ptr - oststr), 1, fd) != 1)
+					goto werror;
 			}
 		}
 		// Absolute (ABS) symbol/string table
 		else
 		{
 			// The symbol and string table have been created as part of the
-			// DoSymbol() function and the output symbol and string tables are in
-			// COF format. For an ABS file we need to process through this to
-			// create the 14 character long combined symbol and string table.
-			// Format of symbol table in ABS: AAAAAAAATTVVVV, where (A)=STRING,
-			// (T)=TYPE & (V)=VALUE
+			// DoSymbol() function and the output symbol and string tables are
+			// in COF format. For an ABS file we need to process through this
+			// to create the 14 character long combined symbol and string
+			// table. Format of symbol table in ABS: AAAAAAAATTVVVV, where
+			// (A)=STRING, (T)=TYPE & (V)=VALUE
 
 			for(i=0; i<ost_index; i++)
 			{
-				memset(symbol, 0, 14);				// Initialise symbol record
-				abstype = 0;						// Initialise ABS symbol type
-				slen = 0;							// Initialise symbol string length
+				memset(symbol, 0, 14);		// Initialise symbol record
+				abstype = 0;				// Initialise ABS symbol type
+				slen = 0;					// Initialise symbol string length
 				index = getlong(ost + (i * 12));	// Get symbol index
 				type  = getlong((ost + (i * 12)) + 4);	// Get symbol type
 
+				// Not doing debug symbols
 				if (type & 0xF0000000)
-					continue;                    // Not doing debug symbols
+					continue;
 
-				value = getlong((ost + (i * 12)) + 8);	// Get symbol value
+				// Get symbol value
+				value = getlong((ost + (i * 12)) + 8);
 				slen = strlen(oststr + index);
 
 				// Get symbol string (maximum 8 chars)
@@ -1330,10 +1337,12 @@ int write_ofile(struct OHEADER * header)
 					break;
 				}
 
-				putword(symbol + 8, abstype);		// Write back new ABS type
-				putlong(symbol + 10, value);		// Write back value
+				putword(symbol + 8, abstype);	// Write back new ABS type
+				putlong(symbol + 10, value);	// Write back value
 
-				if (fwrite(symbol, 14, 1, fd) != 1) goto werror;    // Write symbol record
+				// Write symbol record
+				if (fwrite(symbol, 14, 1, fd) != 1)
+					goto werror;
 			}
 		}
 	}
@@ -1459,10 +1468,10 @@ int write_map(struct OHEADER * header)
 
 
 //
-// Convert ASCII to hexadecimal
+// Stuff the (long) value of a string into the value argument. RETURNS TRUE if
+// the string doesn't parse.  Parses only as a hexadecimal string.
 //
-//int atolx(char * string, long * value)
-int atolx(char * string, int * value)
+int GetHexValue(char * string, int * value)
 {
 	*value = 0;
 
@@ -1492,16 +1501,6 @@ int atolx(char * string, int * value)
 
 
 //
-// Stuff the (long) value of a string into the value argument. RETURNS TRUE if
-// the string doesn't parse.  Parses only as a hex string.
-//
-int getval(char * string, int * value)
-{
-	return atolx(string, value);
-}
-
-
-//
 // Create one big .o file from the images already in memory, returning a
 // pointer to an OHEADER. Note that the oheader is just the header for the
 // output (plus some other information). The text, data, and fixups are all
@@ -1511,7 +1510,6 @@ struct OHEADER * make_ofile()
 {
 	unsigned tptr, dptr, bptr;					// Bases in runtime model
 	int ret = 0;								// Return value
-	struct OFILE * otemp, * oprev, * ohold;		// Object file list pointers
 	struct OHEADER * header;					// Output header pointer
 
 	// Initialize cumulative segment sizes
@@ -1519,8 +1517,9 @@ struct OHEADER * make_ofile()
 
 	// For each object file, accumulate the sizes of the segments but remove
 	// those object files which are unused
-	oprev = NULL;			// Init previous obj file list ptr
-	otemp = olist;			// Set temp pointer to object file list
+	struct OFILE * oprev = NULL;	// Init previous obj file list ptr
+	struct OFILE * otemp = olist;	// Set temp pointer to object file list
+	int i = 0;
 
 	while (otemp != NULL)
 	{
@@ -1541,12 +1540,31 @@ struct OHEADER * make_ofile()
 				else
 					oprev->o_next = otemp->o_next;
 
-				ohold = otemp;
+				struct OFILE * ohold = otemp;
 
 				if (!ohold->isArchiveFile)
 					free(ohold->o_image);
 
 				free(ohold);
+
+				// Also need to remove them from the obj_* tables too :-P
+				// N.B.: Would probably be worthwhile to remove crap like this
+				//       and stuff it into the OFILE structure...
+				if (wflag)
+					printf("»-> removing %s... (index == %i, len == %i)\n", obj_fname[i], i, obj_index - 1);
+
+				int k;
+
+				for(k=i; k<obj_index-1; k++)
+				{
+					memcpy(obj_fname[k], obj_fname[k + 1], FNLEN);
+					obj_segsize[k][0] = obj_segsize[k + 1][0];
+					obj_segsize[k][1] = obj_segsize[k + 1][1];
+					obj_segsize[k][2] = obj_segsize[k + 1][2];
+				}
+
+				obj_index--;
+				i--;
 			}
 			else
 			{
@@ -1561,6 +1579,7 @@ struct OHEADER * make_ofile()
 
 		// Go to next object file list pointer
 		otemp = otemp->o_next;
+		i++;
 	}
 
 	// Update base addresses and create symbols _TEXT_E, _DATA_E and _BSS_E
@@ -1581,7 +1600,7 @@ struct OHEADER * make_ofile()
 		}
 		else
 		{
-			// BSS is independant of DATA
+			// BSS is independent of DATA
 			bbase = bval;
 			OSTAdd("_BSS_E", 0x09000000, bval + bsssize);
 		}
@@ -1600,7 +1619,7 @@ struct OHEADER * make_ofile()
 		}
 		else
 		{
-			// BSS is independant of DATA
+			// BSS is independent of DATA
 			bbase = bval;
 			OSTAdd("_BSS_E", 0x09000000, bval + bsssize);
 		}
@@ -1646,7 +1665,7 @@ struct OHEADER * make_ofile()
 			else
 				oprev->o_next = otemp->o_next;
 
-			ohold = otemp;
+			struct OFILE * ohold = otemp;
 
 			if (ohold->o_image)
 				if (!ohold->isArchiveFile)
@@ -2047,7 +2066,7 @@ int DoItem(struct OFILE * obj)
 
 	// Don't do anything if this is just an ARCHIVE marker, just add the file
 	// to the olist
-	// (Shamus: N.B. it does no such ARCHIVE thing ATM)
+	// (Shamus: N.B.: it does no such ARCHIVE thing ATM)
 	if (!(obj->o_flags & O_ARCHIVE))
 	{
 		Ofile->o_header.magic = getlong(ptr);
@@ -2118,7 +2137,7 @@ int ProcessLists(void)
 
 	// Process the unresolved symbols list. This may involve pulling in symbols
 	// from any included .a units. Such units are lazy linked by default; we
-	// generally don't want everything they provide, just what's refenced.
+	// generally don't want everything they provide, just what's referenced.
 	for(uptr=unresolved; uptr!=NULL; )
 	{
 		if (vflag > 1)
@@ -2405,7 +2424,7 @@ int LoadObject(char * fname, int fd, char * ptr)
 			return 1;
 		}
 
-		// SCPCD : get the name of the file instead of all pathname
+		// SCPCD: get the name of the file instead of all pathname
 		strcpy(obj_fname[obj_index], path_tail(fname));
 		obj_segsize[obj_index][0] = (getlong(ptr + 4) + secalign) & ~secalign;
 		obj_segsize[obj_index][1] = (getlong(ptr + 8) + secalign) & ~secalign;
@@ -2824,7 +2843,7 @@ int doargs(int argc, char * argv[])
 					printf("Error in text-segment address: cannot be contiguous\n");
 					return 1;
 				}
-				else if ((ttype = 0), getval(argv[i], &tval))
+				else if ((ttype = 0), GetHexValue(argv[i], &tval))
 				{
 					printf("Error in text-segment address: %s is not 'r', 'x' or an address.", argv[i]);
 					return 1;
@@ -2842,7 +2861,7 @@ int doargs(int argc, char * argv[])
 				{
 					dtype = -2;			// DATA follows TEXT
 				}
-				else if ((dtype = 0), getval(argv[i],&dval))
+				else if ((dtype = 0), GetHexValue(argv[i], &dval))
 				{
 					printf("Error in data-segment address: %s is not 'r', 'x' or an address.", argv[i]);
 					return 1;
@@ -2860,7 +2879,7 @@ int doargs(int argc, char * argv[])
 				{
 					btype = -3;			// BSS follows DATA
 				}
-				else if ((btype = 0), getval(argv[i],&bval))
+				else if ((btype = 0), GetHexValue(argv[i], &bval))
 				{
 					printf("Error in bss-segment address: %s is not 'r', 'x[td]', or an address.", argv[i]);
 					return 1;
