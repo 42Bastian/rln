@@ -1,32 +1,27 @@
+#
 # Makefile for Reboot's Linker for Jaguar
-
+#
 RM =/bin/rm -f 
 CC = gcc 
 PROGNAME = rln 
 LIBS = 
+#
+# Figure out which system we're compiling for, and set the appropriate
+# variables
+#
+SYSTYPE    := __GCCUNIX__
 
-# Figure out which system we're compiling for, and set the appropriate variables
-
-OSTYPE := $(shell uname -a)
-
-ifeq "$(findstring Msys,$(OSTYPE))" "Msys"	# Win32
-
-OSDEFINE   := WIN32
-
-else		# ???
-
-OSDEFINE   := __GCCUNIX__
-
+ifneq "$(CROSS)" ""
+SYSTYPE    := WIN32
+else
+OSTYPE := $(shell uname -o)
+ifeq "$(findstring Msys,$(OSTYPE))" "Msys"
+SYSTYPE    := WIN32
+endif
 endif
 
-
-# Change this to -DWIN32 for Windows :-)
-#CFLAGS = -g -I. -D__GCCUNIX__
-#CFLAGS = -g -I. -DWIN32
-CFLAGS = -g -I. -D$(OSDEFINE) -O2
-
+CFLAGS = -g -I. -D$(SYSTYPE) -O2
 SRCS = rln.c 
-
 OBJS = rln.o
 
 .c.o: 
@@ -40,3 +35,4 @@ $(PROGNAME) : $(OBJS)
 
 clean: 
 	$(RM) $(OBJS) $(PROGNAME) $(PROGNAME).exe *~ 
+
