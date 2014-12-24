@@ -1545,7 +1545,7 @@ struct OHEADER * make_ofile()
 				if (!ohold->isArchiveFile)
 					free(ohold->o_image);
 
-				free(ohold);
+//				free(ohold);
 
 				// Also need to remove them from the obj_* tables too :-P
 				// N.B.: Would probably be worthwhile to remove crap like this
