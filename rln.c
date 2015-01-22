@@ -5,6 +5,7 @@
 //
 
 #include "rln.h"
+//#include <assert.h>
 
 unsigned errflag = 0;				// Error flag, goes TRUE on error
 unsigned waitflag = 0;				// Wait for any keypress flag
@@ -173,12 +174,11 @@ long FileSize(int fd)
 //
 int DoSymbol(struct OFILE * ofile)
 {
-	int type;					// Symbol type
-	long value;					// Symbol value
-	int index;					// Symbol index
-	int j;						// Iterator
-	struct HREC * hptr;			// Hash table pointer for globl/extrn
-	char sym[SYMLEN];			// String for symbol name/hash search
+	int type;				// Symbol type
+	long value;				// Symbol value
+	int index;				// Symbol index
+	int j;					// Iterator
+	struct HREC * hptr;		// Hash table pointer for globl/extrn
 
 	// Point to first symbol record in the object file
 	char * symptr = (ofile->o_image + 32
@@ -213,7 +213,8 @@ int DoSymbol(struct OFILE * ofile)
 
 	if (ssidx == -1)
 	{
-		printf("DoSymbol(): Cannot get object file segment size: %s\n", ofile->o_name);
+		printf("DoSymbol(): Cannot get object file segment size: %s\n",
+			ofile->o_name);
 		return 1;
 	}
 
@@ -230,17 +231,12 @@ int DoSymbol(struct OFILE * ofile)
 			// Obtain the string table index for the relocation symbol, look
 			// for it in the globals hash table to obtain information on that
 			// symbol.
-#if 0
-			memset(sym, 0, SYMLEN);
-			strcpy(sym, symend + index);
-			hptr = LookupHREC(sym);
-#else
 			hptr = LookupHREC(symend + index);
-#endif
 
 			if (hptr == NULL)
 			{
-				printf("DoSymbol() : Cannot determine symbol : %s\n", sym);
+				printf("DoSymbol(): Cannot determine symbol: '%s' (%s)\n",
+					symend + index, ofile->o_name);
 				return 1;
 			}
 
@@ -270,7 +266,9 @@ int DoSymbol(struct OFILE * ofile)
 
 			if (ssidx == -1)
 			{
-				printf("DoSymbol() : Cannot get object file segment size : %s\n", ofile->o_name);
+				printf("DoSymbol(): Cannot get object file segment size: '%s:%s' symbol: '%s' (%s)\n",
+					hptr->h_ofile->o_name, hptr->h_ofile->o_arname,
+					symend + index, ofile->o_name);
 				return 1;
 			}
 
@@ -375,7 +373,10 @@ int DoSymbol(struct OFILE * ofile)
 			index = OSTAdd(symend + index, type, value);
 
 			if (index == -1)
+			{
+				printf("DoSymbol(): Failed to add symbol '%s' to OST!\n", symend + index);
 				return 1;
+			}
 		}
 	}
 
@@ -429,6 +430,7 @@ long DoCommon(void)
 //if (hptr->h_ofile->isArchiveFile)
 //	continue;
 
+//Is this true? Couldn't an absolute be exported???
 				if (hptr->h_type == (T_EXT | T_ABS))
 					hptr->h_type = T_ABS;	// Absolutes *can't* be externals
 
@@ -443,34 +445,35 @@ long DoCommon(void)
 
 
 //
-// Add a Symbol's Name, Type, and Value to the OST.
-// Return the Index of the Symbol in OST, or -1 for Error.
+// Add a symbol's name, type, and value to the OST.
+// Returns the index of the symbol in OST, or -1 for error.
 //
 int OSTAdd(char * name, int type, long value)
 {
 	int ost_offset_p, ost_offset_e = 0;	// OST table offsets for position calcs
-	int slen = 0;						// Symbol string length
 	int ostresult;						// OST index result
+	int slen = strlen(name);
 
-	slen = strlen(name);
-
-	// If the OST or OST String Table has not been initialised then do so
+	// If the OST or OST string table has not been initialised then do so
 	if (ost_index == 0)
 	{
-		if ((ost = malloc(OST_BLOCK)) == NULL)
+		ost = malloc(OST_BLOCK);
+		oststr = malloc(OST_BLOCK);
+
+		if (ost == NULL)
 		{
-			printf("OST memory allocation error (stringtable).\n");
+			printf("OST memory allocation error.\n");
 			return -1;
 		}
 
-		ost_ptr = ost;							// Set OST start pointer
-		ost_end = ost + OST_BLOCK;				// Set OST end pointer
-
-		if ((oststr = malloc(OST_BLOCK)) == NULL)
+		if (oststr == NULL)
 		{
-			printf("OST memory allocation error (string).\n");
+			printf("OSTSTR memory allocation error.\n");
 			return -1;
 		}
+
+		ost_ptr = ost;						// Set OST start pointer
+		ost_end = ost + OST_BLOCK;			// Set OST end pointer
 
 		putlong(oststr, 0x00000004);		// Just null long for now
 		oststr_ptr = oststr + 4;			// Skip size of str table long (incl null long)
@@ -480,15 +483,17 @@ int OSTAdd(char * name, int type, long value)
 	else
 	{
 		// If next symbol record exceeds current allocation then expand symbol
-		// table.
+		// table and/or symbol string table.
 		ost_offset_p = (ost_ptr - ost);
 		ost_offset_e = (ost_end - ost);
 
-		// 3 x int (12)
+		// 3 x uint32_t (12 bytes)
 		if ((ost_ptr + 12) > ost_end)
 		{
-#warning "!!! Bad logic in realloc call !!!"
-			if ((ost = realloc(ost, (ost_end + OST_BLOCK))) == NULL)
+			// We want to allocate the current size of the OST + another block.
+			ost = realloc(ost, ost_offset_e + OST_BLOCK);
+
+			if (ost == NULL)
 			{
 				printf("OST memory reallocation error.\n");
 				return -1;
@@ -501,10 +506,12 @@ int OSTAdd(char * name, int type, long value)
 		ost_offset_p = (oststr_ptr - oststr);
 		ost_offset_e = (oststr_end - oststr);
 
+		// string length + terminating NULL + uint32_t (terminal long)
 		if ((oststr_ptr + (slen + 1 + 4)) > oststr_end)
 		{
-#warning "!!! Bad logic in realloc call !!!"
-			if ((oststr = realloc(oststr, (oststr_end + OST_BLOCK))) == NULL)
+			oststr = realloc(oststr, ost_offset_e + OST_BLOCK);
+
+			if (oststr == NULL)
 			{
 				printf("OSTSTR memory reallocation error.\n");
 				return -1;
@@ -520,55 +527,58 @@ int OSTAdd(char * name, int type, long value)
 	if ((type & 0xF0000000) && !gflag)
 	{
 		// Do nothing
+		return 0;
 	}
-	else
+
+	// Get symbol index in OST, if any (-1 if not found)
+	ostresult = OSTLookup(name);
+
+	// If the symbol is in the output symbol table and the bflag is set
+	// (don't remove multiply defined locals) and this is not an
+	// external/global symbol *** OR *** the symbol is not in the output
+	// symbol table then add it.
+	if (((ostresult != -1) && bflag && !(type & 0x01000000))
+		|| ((ostresult != -1) && gflag && (type & 0xF0000000))
+		|| (ostresult == -1))
 	{
-		ostresult = OSTLookup(name);		// Get symbol index in OST
+		if ((type & 0xF0000000) == 0x40000000)
+			putlong(ost_ptr, 0x00000000);	// Zero string table offset for dbg line
+		else
+			putlong(ost_ptr, (oststr_ptr - oststr));	// String table offset of symbol string
 
-		// If the symbol is in the output symbol table and the bflag is set
-		// (don't remove multiply defined locals) and this is not an
-		// external/global symbol *** OR *** the symbol is not in the output
-		// symbol table then add it.
-		if (((ostresult != -1) && bflag && !(type & 0x01000000))
-			|| ((ostresult != -1) && gflag && (type & 0xF0000000)) || (ostresult == -1))
+		putlong(ost_ptr + 4, type);
+		putlong(ost_ptr + 8, value);
+		ost_ptr += 12;
+
+		// If the symbol type is anything but a debug line information
+		// symbol then write the symbol string to the string table
+		if ((type & 0xF0000000) != 0x40000000)
 		{
-			if ((type & 0xF0000000) == 0x40000000)
-				putlong(ost_ptr, 0x00000000);	// Zero string table offset for dbg line
-			else
-				putlong(ost_ptr, (oststr_ptr - oststr));	// String table offset of symbol string
-
-			putlong(ost_ptr + 4, type );
-			putlong(ost_ptr + 8, value);
-			ost_ptr += 12;
-
-			// If the symbol type is anything but a debug line information
-			// symbol then write the symbol string to the string table
-			if ((type & 0xF0000000) != 0x40000000)
-			{
-				strcpy(oststr_ptr, name);		// Put symbol name in string table
-				*(oststr_ptr + slen) = '\0';	// Add null terminating character
-				oststr_ptr += (slen + 1);
-				putlong(oststr_ptr, 0x00000000);	// Null terminating long
-				putlong(oststr, (oststr_ptr - oststr));	// Update size of string table
-			}
-
-			if (vflag > 1)
-			{
-				printf("OSTAdd: (%s), type=$%08X, val=$%08X\n", name, type, value);
-			}
-
-			return ost_index++;
+			strcpy(oststr_ptr, name);		// Put symbol name in string table
+			*(oststr_ptr + slen) = '\0';	// Add null terminating character
+			oststr_ptr += (slen + 1);
+			putlong(oststr_ptr, 0x00000000);	// Null terminating long
+			putlong(oststr, (oststr_ptr - oststr));	// Update size of string table
 		}
+
+		if (vflag > 1)
+		{
+			printf("OSTAdd: (%s), type=$%08X, val=$%08lX\n", name, type, value);
+		}
+
+// is ost_index pointing one past?
+// does this return the same regardless of if its ++n or n++?
+// no. it returns the value of ost_index *before* it's incremented.
+		return ++ost_index;
 	}
 
-	// Not sure about this as it could affect return indices. Needed to stop
-	// return error.
-	return 0;
+	return ostresult;
 }
 
 
 //
 // Return the index of a symbol in the output symbol table
+// N.B.: This is a 1-based index! (though there's no real reason for it to be)
 //
 int OSTLookup(char * sym)
 {
@@ -1051,10 +1061,9 @@ int DoFile(char * fname, int incFlag, char * sym)
 //
 int segmentpad(FILE * fd, long segsize, int value)
 {
-//	long padsize;                            // Number of pad bytes needed
-	int i;                                   // Good 'ol iterator
-	char padarray[32];                       // Array of padding bytes
-	char * padptr;                           // Pointer to array
+	int i;
+	char padarray[32];
+	char * padptr;
 
 	// Determine the number of padding bytes that are needed
 	long padsize = (segsize + secalign) & ~secalign;
@@ -1301,7 +1310,7 @@ int write_ofile(struct OHEADER * header)
 				index = getlong(ost + (i * 12));	// Get symbol index
 				type  = getlong((ost + (i * 12)) + 4);	// Get symbol type
 
-				// Not doing debug symbols
+				// Skip debug symbols
 				if (type & 0xF0000000)
 					continue;
 
@@ -1820,9 +1829,9 @@ int AddARSymbol(char * sym, struct OFILE * ofile)
 int GetHash(char * s)
 {
 	// For this to be consistent, the symbol MUST be zeroed out beforehand!
-	char c[SYMLEN];
-	memset(c, 0, SYMLEN);
-	strcpy(c, s);
+	// N.B.: strncpy() pads zeroes for us, if the symbol is less than 15 chars.
+	char c[15];
+	strncpy(c, s, 15);
 
 	int i = (c[0] + c[1] + c[2] + c[3] + c[4] + c[5] + c[6] + c[7] + c[8]
 		+ c[9] + c[10] + c[11] + c[12] + c[13] + c[14]) % NBUCKETS;
@@ -1874,23 +1883,31 @@ struct HREC * LookupARHREC(char * symbol)
 }
 
 
+#if 0
 //
 // Add symbol to the hash table if it doesn't already exist, otherwise decide
 // what to do since it's already defined in another unit.
 //
 int DealWithSymbol(char * sym, long type, long value, struct OFILE * ofile)
 {
+	// Make sure we have a filename...
+	assert(ofile->o_name[0] != 0);
+
 	if (vflag > 1)
 	{
 		printf("DealWithSymbol(%s,%s,%lx,", sym, ofile->o_name, value);
 		printf("%x,%s)\n", (unsigned int)type, (isglobal(type) ? "GLOBAL" : "COMMON"));
 	}
 
+	// See if the symbol is already in the symbol table...
 	struct HREC * hptr = LookupHREC(sym);
 
 	if (hptr == NULL)
 		return AddSymbolToHashList(&htable[GetHash(sym)], sym, ofile, value, type);
 
+	// N.B.: The symbol being passed in is *already* been vetted as an
+	//       external, so we have only *two* cases to look for here.
+#if 0
 	// Symbol is already in table... Figure out how to handle!
 	if (iscommon(type) && !iscommon(hptr->h_type))
 	{
@@ -1904,8 +1921,16 @@ int DealWithSymbol(char * sym, long type, long value, struct OFILE * ofile)
 			printf(" discarded.\n");
 		}
 
+#if 0
+#warning "!!! WHERE THE FUCK IS THIS WRITING TO?? !!!"
+// Wow, just wow. This is writing to the symbol string table when it apparently
+// it thinks it's writing to an ABS symbol. This is so wrong, I don't even know
+// where to begin...
 		putword(sym + 8, ABST_EXTERN);
 		putlong(sym + 10, 0L);
+#else
+		// ??? write what to where?
+#endif
 	}
 	else if (iscommon(hptr->h_type) && !iscommon(type))
 	{
@@ -1924,8 +1949,10 @@ int DealWithSymbol(char * sym, long type, long value, struct OFILE * ofile)
 		hptr->h_value = value;
 	}
 	// They're both global [WRONG! Passed in one is global]
+	// [technically, this is correct, as it failed the 1st two checks...
+	//  but it is unclear, so the latter is preferable.]
 //	else if (!iscommon(type))
-//is this now right??
+//is this now right?? [YES, see above]
 	else if (!iscommon(type) && !iscommon(hptr->h_type))
 	{
 		// Global exported by another ofile; warn and make this one extern
@@ -1938,7 +1965,12 @@ int DealWithSymbol(char * sym, long type, long value, struct OFILE * ofile)
 			printf(" discarded\n");
 		}
 
+#if 0
+#warning "!!! WHERE THE FUCK IS THIS WRITING TO?? !!!"
 		putword(sym + 8, ABST_EXTERN);
+#else
+		// ??? write what to where?
+#endif
 	}
 	// They're both common
 	else
@@ -1949,9 +1981,47 @@ int DealWithSymbol(char * sym, long type, long value, struct OFILE * ofile)
 			hptr->h_ofile = ofile;
 		}
 	}
+#else
+	if (iscommon(hptr->h_type))
+	{
+		// Mismatch: common came first; warn and keep the global one
+		if (wflag)
+		{
+			printf("Warning: %s: global from ", sym);
+			put_name(ofile);
+			printf(" used, common from ");
+			put_name(hptr->h_ofile);
+			printf(" discarded.\n");
+		}
+
+		hptr->h_type = type;
+		hptr->h_ofile = ofile;
+		hptr->h_value = value;
+	}
+	else
+	{
+		// Global exported by another ofile; warn and make this one extern
+		if (wflag)
+		{
+			printf("Duplicate symbol %s: ", sym);
+			put_name(hptr->h_ofile);
+			printf(" used, ");
+			put_name(ofile);
+			printf(" discarded\n");
+		}
+
+#if 0
+#warning "!!! WHERE THE FUCK IS THIS WRITING TO?? !!!"
+		putword(sym + 8, ABST_EXTERN);
+#else
+		// ??? write what to where?
+#endif
+	}
+#endif
 
 	return 0;
 }
+#endif
 
 
 //
@@ -1964,7 +2034,6 @@ int DealWithSymbol(char * sym, long type, long value, struct OFILE * ofile)
 int AddSymbols(struct OFILE * Ofile)
 {
 	struct HREC * hptr;			// Hash record pointer
-	char symbol[SYMLEN];
 
 	if (vflag > 1)
 		printf("Add symbols for file %s\n", Ofile->o_name);
@@ -1984,31 +2053,79 @@ int AddSymbols(struct OFILE * Ofile)
 		long index = getlong(sfix);				// Get symbol string index
 		long type  = getlong(sfix + 4);			// Get symbol type
 		long value = getlong(sfix + 8);			// Get symbol value
-		memset(symbol, 0, SYMLEN);
-		strcpy(symbol, sstr + index);
 
 		if ((Ofile->isArchiveFile) && !(Ofile->o_flags & O_USED))
 		{
 			if ((type & T_EXT) && (type & (T_SEG | T_ABS)))
-				if (AddARSymbol(symbol, Ofile))
+				if (AddARSymbol(sstr + index, Ofile))
 					return 1;
 		}
 		else if (type == T_EXT)
 		{
-			// External symbal that is *not* in the current unit
-			hptr = LookupHREC(symbol);
+			// External symbol that is *not* in the current unit
+			hptr = LookupHREC(sstr + index);
 
 			if (hptr != NULL)
 				hptr->h_ofile->o_flags |= O_USED;	// Mark .o file as used
 			// Otherwise add to unresolved list
-			else if (AddUnresolvedSymbol(symbol, Ofile))
+			else if (AddUnresolvedSymbol(sstr + index, Ofile))
 				return 1;				// Error if addition failed
 		}
 		else if ((type & T_EXT) && (type & (T_SEG | T_ABS)))
 		{
+#if 0
 			// Symbol in the current unit that is also EXPORTED
-			if (DealWithSymbol(symbol, type, value, Ofile))
+			if (DealWithSymbol(sstr + index, type, value, Ofile))
 				return 1;				// Error if addition failed
+#else
+			hptr = LookupHREC(sstr + index);
+
+			// Symbol isn't in the table, so try to add it:
+			if (hptr == NULL)
+			{
+				if (AddSymbolToHashList(&htable[GetHash(sstr + index)],
+					sstr + index, Ofile, value, type))
+					return 1;
+			}
+			else
+			{
+				// Symbol already exists, decide what to do about it
+				if (iscommon(hptr->h_type))
+				{
+					// Mismatch: common came first; warn and keep the global
+					if (wflag)
+					{
+						printf("Warning: %s: global from ", sstr + index);
+						put_name(Ofile);
+						printf(" used, common from ");
+						put_name(hptr->h_ofile);
+						printf(" discarded.\n");
+					}
+
+					hptr->h_ofile = Ofile;
+					hptr->h_type = type;
+					hptr->h_value = value;
+				}
+				else
+				{
+					// Global exported by another ofile; warn and make this one
+					// extern
+					if (wflag)
+					{
+						printf("Duplicate symbol %s: ", sstr + index);
+						put_name(hptr->h_ofile);
+						printf(" used, ");
+						put_name(Ofile);
+						printf(" discarded\n");
+					}
+
+					// Set the global in this unit to pure external
+					// (is this a good idea? what if the other one is a ref to
+					// this one???)
+					putlong(sfix + 4, T_EXT);
+				}
+			}
+#endif
 		}
 
 		sfix += 12;			// Increment symbol fixup pointer
@@ -2213,6 +2330,7 @@ int ProcessLists(void)
 //
 char * path_tail(char * name)
 {
+	// Find last occurance of PATH_DELIMETER
 	char * temp = strrchr(name, PATH_DELIMITER);
 
 	// Return what was passed in if path delimiter was not found
@@ -2542,6 +2660,13 @@ int LoadArchive(char * fname, int fd)
 		}
 		else if (HasDotOSuffix(objName))
 		{
+
+			// Strip off any trailing forward slash at end of object name
+			int lastChar = strlen(objName) - 1;
+
+			if (objName[lastChar] == '/')
+				objName[lastChar] = 0;
+
 //printf("Processing object \"%s\" (size == %i, obj_index == %i)...\n", objName, atoi(objSize), obj_index);
 			strcpy(obj_fname[obj_index], objName);
 			obj_segsize[obj_index][0] = (getlong(ptr + 60 + 4) + secalign) & ~secalign;
@@ -2590,8 +2715,8 @@ int ProcessFiles(void)
 
 			lseek(handle[i], 0L, 0);	// Reset to start of input file
 
-			// Look for RMAC/MAC/GCC ($20107) object files
-			if ((getlong(magic) == 0x00000107) || (getlong(magic) == 0x00020107))
+			// Look for RMAC/MAC/GCC (a.out) object files
+			if ((getlong(magic) & 0xFFFF) == 0x0107)
 			{
 				// Process input object file
 				if (LoadObject(name[i], handle[i], 0L))
@@ -2607,6 +2732,7 @@ int ProcessFiles(void)
 			{
 				// Close file and error
 				printf("%s is not a supported object or archive file\n", name[i]);
+				printf("Magic == [%02X][%02X][%02X][%02X]\n", magic[0], magic[1], magic[2], magic[3]);
 				close(handle[i]);
 				return 1;
 			}
@@ -3136,6 +3262,7 @@ void display_help(void)
 void rln_exit(void)
 {
 	char tempbuf[128];
+	char * c;
 
 	// Display link status if verbose mode
 	if (vflag)
@@ -3145,7 +3272,7 @@ void rln_exit(void)
 	if (waitflag)
 	{
 		printf("\nPress the [RETURN] key to continue. ");
-		fgets(tempbuf, 128, stdin);
+		c = fgets(tempbuf, 128, stdin);
 	}
 
 	exit(errflag);

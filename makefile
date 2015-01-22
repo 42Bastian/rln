@@ -1,10 +1,10 @@
 #
 # Makefile for Reboot's Linker for Jaguar
 #
-RM =/bin/rm -f 
-CC = gcc 
-PROGNAME = rln 
-LIBS = 
+RM =/bin/rm -f
+CC = gcc
+PROGNAME = rln
+LIBS =
 #
 # Figure out which system we're compiling for, and set the appropriate
 # variables
@@ -20,7 +20,7 @@ SYSTYPE    := WIN32
 endif
 endif
 
-CFLAGS = -g -I. -D$(SYSTYPE) -O2
+CFLAGS = -g -I. -D$(SYSTYPE) -O2 -Wno-format
 SRCS = rln.c 
 OBJS = rln.o
 
