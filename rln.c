@@ -1362,7 +1362,7 @@ int write_ofile(struct OHEADER * header)
 				case 0x08000000: abstype = (short)ABST_DEFINED | ABST_BSS;                break;
 				case 0x09000000: abstype = (short)ABST_DEFINED | ABST_GLOBAL | ABST_BSS;  break;
 				default:
-					printf("write_ofile: abs, cannot determine symbol type\n");
+					printf("warning (write_ofile): ABS, cannot determine symbol type ($%08X)\n", type);
 					type = 0;
 					break;
 				}
