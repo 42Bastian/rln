@@ -674,13 +674,7 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 	// then update the COF TEXT segment offset allowing for the phrase padding
 	if ((flag == T_TEXT) && !ofile->o_header.absrel.reloc.tsize)
 	{
-		// TEXT segment size plus padding
-		pad = ((ofile->o_header.tsize + secalign) & ~secalign);
-		textoffset += (ofile->o_header.tsize + (pad - ofile->o_header.tsize));
-
-		if (vflag > 1)
-			printf("RelocateSegment(%s, TEXT) : No Relocation Data\n", ofile->o_name);
-
+		// SCPCD : we should not increment the textoffset before the end of processing the object file, else data section will point to wrong textoffset
 		return 0;
 	}
 
@@ -689,6 +683,15 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 	// padding
 	if ((flag == T_DATA) && !ofile->o_header.absrel.reloc.dsize)
 	{
+		// SCPCD : the T_DATA is the last section of the file, we can now increment the textoffset, dataoffset and bssoffset
+
+		// TEXT segment size plus padding
+		pad = ((ofile->o_header.tsize + secalign) & ~secalign);
+		textoffset += (ofile->o_header.tsize + (pad - ofile->o_header.tsize));
+
+		if (vflag > 1)
+			printf("RelocateSegment(%s, TEXT) : No Relocation Data\n", ofile->o_name);
+
 		// DATA segment size plus padding
 		pad = ((ofile->o_header.dsize + secalign) & ~secalign);
 		dataoffset += (ofile->o_header.dsize + (pad - ofile->o_header.dsize));
@@ -783,10 +786,8 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 			case 0x00000200:          // Absolute Value
 				break;
 			case 0x00000400:          // TEXT segment relocation record
-				if (flag == T_TEXT)   // Is this a TEXT section record?
+				// SCPCD : the symbol point to a text segment, we should use the textoffset
 					newdata = tbase + textoffset + olddata;
-				else
-					newdata = tbase + dataoffset + olddata; // Nope, must be DATA section
 
 				break;
 			case 0x00000600:          // DATA segment relocation record
@@ -840,14 +841,13 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 	}
 
 	// Update the COF segment offset allowing for the phrase padding.
-	if (flag == T_TEXT)
+	// SCPCD : we should not increment the textoffset before the end of processing the object file, else data section will point to wrong textoffset
+	if (flag == T_DATA)
 	{
 		// TEXT segment plus padding
 		pad = ((ofile->o_header.tsize + secalign) & ~secalign);
 		textoffset += (ofile->o_header.tsize + (pad - ofile->o_header.tsize));
-	}
-	else
-	{
+
 		// DATA segment plus padding
 		pad = ((ofile->o_header.dsize + secalign) & ~secalign);
 		dataoffset += (ofile->o_header.dsize + (pad - ofile->o_header.dsize));
