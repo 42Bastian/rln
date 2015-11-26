@@ -52,7 +52,7 @@
 
 #define MAJOR   1			// Major version number
 #define MINOR   3			// Minor version number
-#define PATCH   6			// Patch release number
+#define PATCH   7			// Patch release number
 
 #ifdef WIN32
 #define PLATFORM     "Win32"		// Release platform - Windows
@@ -224,26 +224,32 @@ struct HREC
 //#define T_COMMON	(T_GLOBAL | T_EXTERN)
 
 // Symbol Table - Type Definitions
-// N.B.: T_EXT can be ORed with any of T_ABS, T_TEXT, TDATA, or T_BSS!
+// N.B.: T_GLBL can be ORed with any of T_ABS, T_TEXT, TDATA, or T_BSS!
+//       Also, these are really a mashup of a struct, consisting of the
+//       following items: type (1 byte), other (1 byte), & descr. (2 bytes).
+//       Also, the type is not enough to distinguish between external &
+//       common symbols; for this,  you need to go to the value field to see
+//       what's there (0=external, !0=common).
 
-#define T_UNDF		0x00000000     // Undefined Symbol
-#define T_EXT		0x01000000     // External Bit, OR'ed In (Global)
-#define T_ABS		0x02000000     // Absolute Symbol (Equated)
-#define T_TEXT		0x04000000     // TEXT Segment
-#define T_DATA		0x06000000     // DATA Segment
-#define T_BSS		0x08000000     // BSS Segment
+#define T_UNDF		0x00000000     // Undefined symbol
+#define T_GLBL		0x01000000     // Scoping bit, OR'ed in (global)
+#define T_ABS		0x02000000     // Absolute symbol (equated)
+#define T_TEXT		0x04000000     // TEXT segment
+#define T_DATA		0x06000000     // DATA segment
+#define T_BSS		0x08000000     // BSS segment
 #define T_SEG		(T_DATA | T_TEXT | T_BSS)   // segment bits
 
 // These macros are used with the TYPE field of a SYMBOL.
+// They are also mostly WRONG
 /*
 Absolutes (equates) can't be externals (line 434)
 -- they are non-relocatable
 */
 
-#define iscommon(type) (((type) & T_EXT) == 0)
-#define islocal(type)  (((type) & T_EXT) == 0)
-#define isglobal(type) ((type) & T_EXT)
-#define isextern(type) ((type) & T_EXT)
+#define iscommon(type) (((type) & T_GLBL) == 0)
+#define islocal(type)  (((type) & T_GLBL) == 0)
+#define isglobal(type) ((type) & T_GLBL)
+#define isextern(type) ((type) & T_GLBL)
 
 /*
 Shamus:
