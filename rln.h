@@ -51,8 +51,8 @@
 #endif
 
 #define MAJOR   1			// Major version number
-#define MINOR   3			// Minor version number
-#define PATCH   7			// Patch release number
+#define MINOR   4			// Minor version number
+#define PATCH   0			// Patch release number
 
 #ifdef WIN32
 #define PLATFORM     "Win32"		// Release platform - Windows
