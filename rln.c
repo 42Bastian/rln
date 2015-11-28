@@ -2952,8 +2952,8 @@ int doargs(int argc, char * argv[])
 				// handle -i (Truncation)
 				else
 				{
-					if (strlen(isym) > 7)
-						isym[7] = '\0';
+					if (strlen(isym) > 8)
+						isym[8] = '\0';
 				}
 
 				// Place include files in the DATA segment only
