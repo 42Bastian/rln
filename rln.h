@@ -7,11 +7,6 @@
 #ifndef __RLN_H__
 #define __RLN_H__
 
-// Required Include Files
-
-// Macro Definitions
-
-// Requirements for Windows Compilation
 
 #ifdef WIN32
 //#define _OPEN_FLAGS  _O_BINARY|_O_RDWR
@@ -33,8 +28,6 @@
 #include <setjmp.h>
 #endif
 
-// Requirements for Mac OS-X or Linux Compilation
-
 #ifdef __GCCUNIX__
 //#define _OPEN_FLAGS  O_RDWR
 #define _OPEN_FLAGS  O_RDONLY
@@ -52,7 +45,7 @@
 
 #define MAJOR   1			// Major version number
 #define MINOR   4			// Minor version number
-#define PATCH   2			// Patch release number
+#define PATCH   3			// Patch release number
 
 #ifdef WIN32
 #define PLATFORM     "Win32"		// Release platform - Windows

@@ -133,6 +133,32 @@ long FileSize(int fd)
 
 
 //
+// Debugging detritus
+//
+void DumpOListAndObjSegSizeList(void)
+{
+	struct OFILE * o;
+	int i;
+
+	printf("Object list order:\n");
+
+	for(o=olist; o!=NULL; o=o->o_next)
+	{
+		printf("\t%s\n", o->o_name);
+	}
+
+	printf("\nobj_segsize[][] list order:\n");
+
+	for(i=0; i<(int)obj_index; i++)
+	{
+		printf("\t%s\n", obj_fname[i]);
+	}
+
+	printf("\n");
+}
+
+
+//
 // For this object file, add symbols to the output symbol table after
 // relocating them. Returns TRUE if OSTLookup returns an error (-1).
 //
@@ -144,6 +170,8 @@ int DoSymbols(struct OFILE * ofile)
 	int j;
 	struct HREC * hptr;
 	unsigned tsoSave, dsoSave, bsoSave;
+
+//	DumpOListAndObjSegSizeList();
 
 	// Point to first symbol record in the object file
 	char * symptr = (ofile->o_image + 32
@@ -171,6 +199,10 @@ int DoSymbols(struct OFILE * ofile)
 		}
 
 		// Accumulate segment sizes
+// N.B. We can get rid of this now that there is a spot in the OFILE for these.
+//      Just have to make sure that the order that the linked list is in
+//      corresponds to the order shown here...
+//      I've proved to my satisfaction that the orders are the same...!
 		tsegoffset += obj_segsize[j][0];
 		dsegoffset += obj_segsize[j][1];
 		bsegoffset += obj_segsize[j][2];
@@ -3120,9 +3152,15 @@ void ShowVersion(void)
 {
 	if (displaybanner)// && vflag)
 	{
-		printf("\nReboot's Linker for Atari Jaguar\n");
-		printf("Copyright (c) 199x Allan K. Pratt, 2014 Reboot\n");
-		printf("V%i.%i.%i %s (%s)\n\n", MAJOR, MINOR, PATCH, __DATE__, PLATFORM);
+		printf(
+		"      _\n"
+		" _ __| |_ ___\n"
+		"| '__| | '_  \\\n"
+		"| |  | | | | |\n"
+		"|_|  |_|_| |_|\n"
+		"\nReboot's Linker for Atari Jaguar\n"
+		"Copyright (c) 199x Allan K. Pratt, 2014-2015 Reboot\n"
+		"V%i.%i.%i %s (%s)\n\n", MAJOR, MINOR, PATCH, __DATE__, PLATFORM);
 	}
 }
 
