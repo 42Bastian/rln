@@ -1869,6 +1869,24 @@ struct HREC * LookupARHREC(char * symbol)
 
 
 //
+// Find the index in the obj_segsize table for the passed in filename
+//
+int GetObjSegSizeIndex(char * name)
+{
+	int i;
+
+	for(i=0; i<(int)obj_index; i++)
+	{
+		if (strcmp(name, obj_fname[i]) == 0)
+			// Object file name was found!
+			return i;
+	}
+
+	return -1;
+}
+
+
+//
 // Add the imported symbols from this file to unresolved, and the global and
 // common (???) symbols to the exported hash table.
 //
@@ -1936,6 +1954,7 @@ int AddSymbols(struct OFILE * Ofile)
 					// Actually, we need to convert this to a BSS symbol,
 					// increase the size of the BSS segment for this object, &
 					// add it to the hash list
+					uint32_t valueSave = value;
 					uint32_t bssLocation = Ofile->o_header.tsize + Ofile->o_header.dsize + Ofile->o_header.bsize;
 					Ofile->o_header.bsize += value;
 					type |= T_BSS;
@@ -1943,12 +1962,18 @@ int AddSymbols(struct OFILE * Ofile)
 					PutLong(sfix + 4, type);
 					PutLong(sfix + 8, value);
 
+					// Also need to reset the size of the object's BSS section:
+					int i = GetObjSegSizeIndex(Ofile->o_name);
+//printf("AddSymbols: obj_segsize[%i][BSS] = %d (value = %d)\n", i, obj_segsize[i][BSS], value);
+					obj_segsize[i][BSS] += valueSave; // need to realign the section, but only *after* all the common symbols have been added from this unit... !!! FIX !!!
+//					obj_segsize[obj_index][2] = (GetLong(ptr + 12) + secalign) & ~secalign;
+
 					if (vflag > 1)
 						printf("AddSymbols: Resetting common label to BSS label\n");
 
 					if (AddSymbolToHashList(&htable[GetHash(sstr + index)],
 						sstr + index, Ofile, value, type))
-						return 1;
+						return 1;				// Error if addition failed
 				}
 				// Check for built-in externals...
 				else if ((strcmp(sstr + index, "_TEXT_E") != 0)
@@ -2229,7 +2254,7 @@ char * PathTail(char * name)
 //
 // Add input file to processing list
 //
-int AddToProcessingList(char * ptr, char * fname, char * arname, uint8_t arFile)
+int AddToProcessingList(char * ptr, char * fname, char * arname, uint8_t arFile, uint32_t tSize, uint32_t dSize, uint32_t bSize)
 {
 	if (plist == NULL)
 	{
@@ -2250,19 +2275,19 @@ int AddToProcessingList(char * ptr, char * fname, char * arname, uint8_t arFile)
 		return 1;
 	}
 
+	// Discard paths from filenames...
 	fname = PathTail(fname);
 	arname = PathTail(arname);
 
-	if (strlen(fname) > FNLEN - 1)
+	// Check for filename length errors...
+	if (strlen(fname) > (FNLEN - 1))
 	{
-		// Error on excessive filename length
 		printf("File name too long: %s (sorry!)\n", fname);
 		return 1;
 	}
 
-	if (strlen(arname) > FNLEN - 1)
+	if (strlen(arname) > (FNLEN - 1))
 	{
-		// Error on excessive filename length
 		printf("AR file name too long: %s (sorry!)\n", arname);
 		return 1;
 	}
@@ -2273,6 +2298,9 @@ int AddToProcessingList(char * ptr, char * fname, char * arname, uint8_t arFile)
 	plast->o_flags = (arFile ? 0 : O_USED);	// File is used if NOT in archive
 	plast->o_next = NULL;				// Initialise next record pointer
 	plast->isArchiveFile = arFile;		// Shamus: Temp until can sort it out
+	plast->segSize[TEXT] = tSize;
+	plast->segSize[DATA] = dSize;
+	plast->segSize[BSS]  = bSize;
 
 	return 0;							// Return without errors
 }
@@ -2386,7 +2414,7 @@ int LoadInclude(char * fname, int handle, char * sym1, char * sym2, int segment)
 
 	PutLong(sptr, 0L);                     // Terminating long for object file
 
-	return AddToProcessingList(ptr, fname, nullStr, 0);
+	return AddToProcessingList(ptr, fname, nullStr, 0, obj_segsize[obj_index - 1][0], obj_segsize[obj_index - 1][1], obj_segsize[obj_index - 1][2]);
 }
 
 
@@ -2434,7 +2462,7 @@ int LoadObject(char * fname, int fd, char * ptr)
 
 	// Now add this image to the list of pending ofiles (plist)
 	// This routine is shared by LoadInclude after it builds the image
-	return AddToProcessingList(ptr, fname, nullStr, 0);
+	return AddToProcessingList(ptr, fname, nullStr, 0, obj_segsize[obj_index - 1][0], obj_segsize[obj_index - 1][1], obj_segsize[obj_index - 1][2]);
 }
 
 
@@ -2554,7 +2582,7 @@ int LoadArchive(char * fname, int fd)
 			obj_segsize[obj_index][2] = (GetLong(ptr + 60  + 12) + secalign) & ~secalign;
 			obj_index++;
 
-			if (AddToProcessingList(ptr + 60, objName, fname, 1))
+			if (AddToProcessingList(ptr + 60, objName, fname, 1, obj_segsize[obj_index - 1][0], obj_segsize[obj_index - 1][1], obj_segsize[obj_index - 1][2]))
 				return 1;
 		}
 

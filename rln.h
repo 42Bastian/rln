@@ -52,7 +52,7 @@
 
 #define MAJOR   1			// Major version number
 #define MINOR   4			// Minor version number
-#define PATCH   1			// Patch release number
+#define PATCH   2			// Patch release number
 
 #ifdef WIN32
 #define PLATFORM     "Win32"		// Release platform - Windows
@@ -131,7 +131,9 @@ struct ARHEADER
 
 #define new_arheader()  (struct ARHEADER *)malloc(sizeof(struct ARHEADER))
 
-// Object File Structure and Related Items
+// Object file structure and related items
+
+enum { TEXT=0, DATA=1, BSS=2 };
 
 struct OFILE
 {
@@ -144,6 +146,7 @@ struct OFILE
 	struct OHEADER o_header;			// Header of this file
 	uint8_t * o_image;					// Image of this file
 	uint8_t isArchiveFile;				// Temporary extra flag
+	uint32_t segSize[3];				// Size of TEXT, DATA & BSS
 };
 
 #define new_ofile()  (struct OFILE *)malloc(sizeof(struct OFILE))
