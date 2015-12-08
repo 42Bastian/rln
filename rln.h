@@ -1,7 +1,6 @@
 //
-// RLN - Reboot's Linker for the Atari Jaguar Console System
-// RLN.H - Application Header
-// Copyright (C) 199x Allan K. Pratt, 2011 Reboot & Friends
+// RLN - Reboot's Linker for the Atari Jaguar console system
+// Copyright (C) 199x Allan K. Pratt, 2011-2015 Reboot & Friends
 //
 
 #ifndef __RLN_H__
@@ -44,8 +43,8 @@
 #endif
 
 #define MAJOR   1			// Major version number
-#define MINOR   4			// Minor version number
-#define PATCH   3			// Patch release number
+#define MINOR   5			// Minor version number
+#define PATCH   0			// Patch release number
 
 #ifdef WIN32
 #define PLATFORM     "Win32"		// Release platform - Windows
@@ -139,7 +138,10 @@ struct OFILE
 	struct OHEADER o_header;			// Header of this file
 	uint8_t * o_image;					// Image of this file
 	uint8_t isArchiveFile;				// Temporary extra flag
-	uint32_t segSize[3];				// Size of TEXT, DATA & BSS
+//These are likely redundant, and can probably be removed with judicious
+//editing of where they are used (in favor of OHEADER vars)
+	uint32_t segSize[3];				// Size of TEXT, DATA & BSS (aligned)
+	uint32_t segBase[3];				// Accumulated base address of TDB
 };
 
 #define new_ofile()  (struct OFILE *)malloc(sizeof(struct OFILE))
@@ -147,6 +149,7 @@ struct OFILE
 // Flags in an Object File's o_flags field
 // O_USED: means this ofile is used or is on the command line or in a -x
 #define O_USED       0x0001
+// N.B.: This is *never* set anywhere in the linker code...
 #define O_ARCHIVE    0x0002			// This is a dummy archive entry
 
 // Symbol Record

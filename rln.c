@@ -1,7 +1,6 @@
 //
-// RLN - Reboot's Linker for the Atari Jaguar Console System
-// RLN.C - Application Code
-// Copyright (C) 199x, Allan K. Pratt, 2014 Reboot & Friends
+// RLN - Reboot's Linker for the Atari Jaguar console system
+// Copyright (C) 199x, Allan K. Pratt, 2014-2015 Reboot & Friends
 //
 
 #include "rln.h"
@@ -34,9 +33,7 @@ unsigned dataoffset = 0;			// COF DATA segment offset
 unsigned bssoffset = 0;				// COF BSS segment offset
 unsigned displaybanner = 1;			// Display version banner
 unsigned symoffset = 0;				// Symbol table offset in output file
-unsigned dosymi = 0;				// Dosym() processing iterator
 unsigned dbgsymbase = 0;			// Debug symbol base address
-//unsigned symtrunc = 0;			// Symbol truncation -i and -ii
 int noheaderflag = 0;				// No header flag for ABS files
 int hflags;							// Value of the arg to -h option
 int ttype, dtype, btype;			// Type flag: 0, -1, -2, -3, -4
@@ -54,9 +51,6 @@ struct OFILE * plist = NULL;		// Object image list pointer
 struct OFILE * plast;				// Last object image list pointer
 struct OFILE * olist = NULL;		// Pointer to first object file in list
 struct OFILE * olast;				// Pointer to last object file in list
-char obj_fname[16384][FNLEN];		// Object file names
-unsigned obj_segsize[16384][3];		// Object file seg sizes; TEXT,DATA,BSS
-unsigned obj_index = 0;				// Object file index/count
 char * arPtr[512];
 uint32_t arIndex = 0;
 struct HREC * htable[NBUCKETS];		// Hash table
@@ -133,32 +127,6 @@ long FileSize(int fd)
 
 
 //
-// Debugging detritus
-//
-void DumpOListAndObjSegSizeList(void)
-{
-	struct OFILE * o;
-	int i;
-
-	printf("Object list order:\n");
-
-	for(o=olist; o!=NULL; o=o->o_next)
-	{
-		printf("\t%s\n", o->o_name);
-	}
-
-	printf("\nobj_segsize[][] list order:\n");
-
-	for(i=0; i<(int)obj_index; i++)
-	{
-		printf("\t%s\n", obj_fname[i]);
-	}
-
-	printf("\n");
-}
-
-
-//
 // For this object file, add symbols to the output symbol table after
 // relocating them. Returns TRUE if OSTLookup returns an error (-1).
 //
@@ -169,9 +137,7 @@ int DoSymbols(struct OFILE * ofile)
 	int index;
 	int j;
 	struct HREC * hptr;
-	unsigned tsoSave, dsoSave, bsoSave;
-
-//	DumpOListAndObjSegSizeList();
+	uint32_t tsoSave, dsoSave, bsoSave;
 
 	// Point to first symbol record in the object file
 	char * symptr = (ofile->o_image + 32
@@ -183,37 +149,9 @@ int DoSymbols(struct OFILE * ofile)
 	// Point to end of symbol record in the object file
 	char * symend = symptr + ofile->o_header.ssize;
 
-	// Search through object segment size table to accumulated segment sizes to
-	// ensure the correct offsets are used in the resulting COF file.
-	int ssidx = -1;
-	unsigned tsegoffset = 0, dsegoffset = 0, bsegoffset = 0;
-
-	// Search for object file name
-	for(j=0; j<(int)obj_index; j++)
-	{
-		if (!strcmp(ofile->o_name, obj_fname[j]))
-		{
-			// Object file name found
-			ssidx = j;
-			break;
-		}
-
-		// Accumulate segment sizes
-// N.B. We can get rid of this now that there is a spot in the OFILE for these.
-//      Just have to make sure that the order that the linked list is in
-//      corresponds to the order shown here...
-//      I've proved to my satisfaction that the orders are the same...!
-		tsegoffset += obj_segsize[j][0];
-		dsegoffset += obj_segsize[j][1];
-		bsegoffset += obj_segsize[j][2];
-	}
-
-	if (ssidx == -1)
-	{
-		printf("DoSymbols(): Object file missing from obj_fname: %s\n",
-			ofile->o_name);
-		return 1;
-	}
+	uint32_t tsegoffset = ofile->segBase[TEXT];
+	uint32_t dsegoffset = ofile->segBase[DATA];
+	uint32_t bsegoffset = ofile->segBase[BSS];
 
 	// Save segment vars, so we can restore them if needed
 	tsoSave = tsegoffset, dsoSave = dsegoffset, bsoSave = bsegoffset;
@@ -256,42 +194,14 @@ int DoSymbols(struct OFILE * ofile)
 				continue;
 			}
 
-			// Search through object segment size table to obtain segment sizes
-			// for the object that has the required external/global as a local
-			// symbol. As each object is interrogated the segment sizes are
-			// accumulated to ensure the correct offsets are used in the
-			// resulting COF file. This is effectively 'done again' only as we
-			// are working with a different object file.
-			ssidx = -1;
-			tsegoffset = dsegoffset = bsegoffset = 0;
-
-			// Search for object filename
-			for(j=0; j<(int)obj_index; j++)
-			{
-				if (!strcmp(hptr->h_ofile->o_name, obj_fname[j]))
-				{
-					ssidx = j;	// Symbol object filename
-					break;
-				}
-
-				// Accumulate segment sizes
-				tsegoffset += obj_segsize[j][0];
-				dsegoffset += obj_segsize[j][1];
-				bsegoffset += obj_segsize[j][2];
-			}
-
-			if (ssidx == -1)
-			{
-				printf("DoSymbols(): Object file missing from obj_fname: '%s:%s' symbol: '%s' (%s)\n",
-					hptr->h_ofile->o_name, hptr->h_ofile->o_arname,
-					symend + index, ofile->o_name);
-				return 1;
-			}
+			tsegoffset = hptr->h_ofile->segBase[TEXT];
+			dsegoffset = hptr->h_ofile->segBase[DATA];
+			bsegoffset = hptr->h_ofile->segBase[BSS];
 
 			// Update type with global type
 			type = hptr->h_type;
 
-			// Remove external flag if absolute
+			// Remove global flag if absolute
 			if (type == (T_GLBL | T_ABS))
 				type = T_ABS;
 
@@ -326,15 +236,19 @@ int DoSymbols(struct OFILE * ofile)
 
 		// Process and update the value dependent on whether the symbol is a
 		// debug symbol or not
-		// N.B.: These are currently not supported
+		// N.B.: Debug symbols are currently not supported
 		if (type & 0xF0000000)
 		{
 			// DEBUG SYMBOL
 			// Set the correct debug symbol base address (TEXT segment)
+#if 0
 			dbgsymbase = 0;
 
 			for(j=0; (unsigned)j<dosymi; j++)
 				dbgsymbase += obj_segsize[j][0];
+#else
+			dbgsymbase = ofile->segBase[TEXT];
+#endif
 
 			switch (type & 0xFF000000)
 			{
@@ -404,9 +318,6 @@ int DoSymbols(struct OFILE * ofile)
 			}
 		}
 	}
-
-	// Increment dosymi processsing
-	dosymi++;
 
 	return 0;
 }
@@ -1127,7 +1038,7 @@ int WriteOutputFile(struct OHEADER * header)
 	struct OFILE * otemp;				// Object file pointer
 	int i, j;							// Iterators
 	char himage[0x168];					// Header image (COF = 0xA8)
-	unsigned tsoff, dsoff, bsoff;		// Segment offset values
+	uint32_t tsoff, dsoff, bsoff;		// Segment offset values
 	unsigned index, type, value;		// Symbol table index, type and value
 	short abstype;						// ABS symbol type
 	char symbol[14];					// Symbol record for ABS files
@@ -1162,10 +1073,10 @@ int WriteOutputFile(struct OHEADER * header)
 
 		// Process each object file segment size to obtain a cumulative segment
 		// size for both the TEXT and DATA segments
-		for(i=0; i<(int)obj_index; i++)
+		for(otemp=olist; otemp!=NULL; otemp=otemp->o_next)
 		{
-			dsoff += obj_segsize[i][0];	// Adding TEXT segment sizes
-			bsoff += obj_segsize[i][0] + obj_segsize[i][1];	// Adding TEXT and DATA segment sizes
+			dsoff += otemp->segSize[TEXT];
+			bsoff += otemp->segSize[TEXT] + otemp->segSize[DATA];
 		}
 
 		// Currently this only builds a COF absolute file. Conditionals and
@@ -1368,8 +1279,8 @@ int WriteOutputFile(struct OHEADER * header)
 				case 0x08000000: abstype = (short)ABST_DEFINED | ABST_BSS;                break;
 				case 0x09000000: abstype = (short)ABST_DEFINED | ABST_GLOBAL | ABST_BSS;  break;
 				default:
-					printf("warning (WriteOutputFile): ABS, cannot determine symbol type ($%08X)\n", type);
-					type = 0;
+					printf("warning (WriteOutputFile): ABS, cannot determine symbol type ($%08X) [%s]\n", type, symbol);
+//					type = 0;
 					break;
 				}
 
@@ -1383,10 +1294,9 @@ int WriteOutputFile(struct OHEADER * header)
 		}
 	}
 
-	// Close the file
 	if (fclose(fd))
 	{
-		printf("Close error on output file %s\n",ofile);
+		printf("Close error on output file %s\n", ofile);
 		return 1;
 	}
 
@@ -1540,9 +1450,9 @@ int GetHexValue(char * string, int * value)
 // Create one big .o file from the images already in memory, returning a
 // pointer to an OHEADER. Note that the oheader is just the header for the
 // output (plus some other information). The text, data, and fixups are all
-// still in the ofile images hanging off the global `olist'.
+// still in the ofile images hanging off the global 'olist'.
 //
-struct OHEADER * MakeOutputFile()
+struct OHEADER * MakeOutputObject()
 {
 	unsigned tptr, dptr, bptr;	// Bases in runtime model
 	int ret = 0;				// Return value
@@ -1555,65 +1465,45 @@ struct OHEADER * MakeOutputFile()
 	// those object files which are unused
 	struct OFILE * oprev = NULL;	// Init previous obj file list ptr
 	struct OFILE * otemp = olist;	// Set temp pointer to object file list
-	int i = 0;
 
 	while (otemp != NULL)
 	{
-		// UNUSED !!!!! (it's !O_ARCHIVE, so this code executes.)
-		if (!(otemp->o_flags & O_ARCHIVE))
+		// If the object is unused, discard it...
+		if ((otemp->o_flags & O_USED) == 0)
 		{
-			if ((otemp->o_flags & O_USED) == 0)
+			if (wflag)
 			{
-				if (wflag)
-				{
-					printf("Unused object file ");
-					WriteARName(otemp);
-					printf(" discarded.\n");
-				}
-
-				// Drop the entry from the linked list
-				if (oprev == NULL)
-					olist = otemp->o_next;
-				else
-					oprev->o_next = otemp->o_next;
-
-				// Free the object entry if it's not an archive file
-				if (!otemp->isArchiveFile)
-					free(otemp->o_image);
-
-				// Also need to remove them from the obj_* tables too :-P
-				// N.B.: Would probably be worthwhile to remove crap like this
-				//       and stuff it into the OFILE structure...
-				if (wflag)
-					printf("»-> removing %s... (index == %i, len == %i)\n", obj_fname[i], i, obj_index - 1);
-
-				int k;
-
-				for(k=i; k<obj_index-1; k++)
-				{
-					memcpy(obj_fname[k], obj_fname[k + 1], FNLEN);
-					obj_segsize[k][0] = obj_segsize[k + 1][0];
-					obj_segsize[k][1] = obj_segsize[k + 1][1];
-					obj_segsize[k][2] = obj_segsize[k + 1][2];
-				}
-
-				obj_index--;
-				i--;
+				printf("Unused object file ");
+				WriteARName(otemp);
+				printf(" discarded.\n");
 			}
+
+			// Drop the entry from the linked list
+			if (oprev == NULL)
+				olist = otemp->o_next;
 			else
-			{
-				// Increment total of segment sizes ensuring requested
-				// alignment
-				textsize += (otemp->o_header.tsize + secalign) & ~secalign;
-				datasize += (otemp->o_header.dsize + secalign) & ~secalign;
-				bsssize  += (otemp->o_header.bsize + secalign) & ~secalign;
-				oprev = otemp;
-			}
+				oprev->o_next = otemp->o_next;
+
+			// Free the object entry if it's not an archive file
+			if (!otemp->isArchiveFile)
+				free(otemp->o_image);
+		}
+		else
+		{
+			// Save accumulated addresses in the object
+			otemp->segBase[TEXT] = textsize;
+			otemp->segBase[DATA] = datasize;
+			otemp->segBase[BSS]  = bsssize;
+
+			// Increment total of segment sizes ensuring requested alignment
+			textsize += (otemp->o_header.tsize + secalign) & ~secalign;
+			datasize += (otemp->o_header.dsize + secalign) & ~secalign;
+			bsssize  += (otemp->o_header.bsize + secalign) & ~secalign;
+			oprev = otemp;
 		}
 
 		// Go to next object file list pointer
 		otemp = otemp->o_next;
-		i++;
 	}
 
 	// Update base addresses and inject the symbols _TEXT_E, _DATA_E and _BSS_E
@@ -1634,7 +1524,7 @@ struct OHEADER * MakeOutputFile()
 	}
 	else
 	{
-		// DATA is independant of TEXT
+		// DATA is independent of TEXT
 		dbase = dval;
 
 		if (!bval)
@@ -1645,6 +1535,7 @@ struct OHEADER * MakeOutputFile()
 			bbase = bval;
 	}
 
+	// Inject segment end labels, for C compilers that expect this shite
 	OSTAdd("_TEXT_E", 0x05000000, tbase + textsize);
 	OSTAdd("_DATA_E", 0x07000000, dbase + datasize);
 	OSTAdd("_BSS_E",  0x09000000, bbase + bsssize);
@@ -1666,16 +1557,11 @@ struct OHEADER * MakeOutputFile()
 	while (otemp != NULL)
 	{
 		otemp->o_tbase = tptr;
-
-		// Do rest only for non-ARCHIVE markers
-		if (!(otemp->o_flags & O_ARCHIVE))
-		{
-			otemp->o_dbase = dptr;
-			otemp->o_bbase = bptr;
-			tptr += (otemp->o_header.tsize + secalign) & ~secalign;
-			dptr += (otemp->o_header.dsize + secalign) & ~secalign;
-			bptr += (otemp->o_header.bsize + secalign) & ~secalign;
-		}
+		otemp->o_dbase = dptr;
+		otemp->o_bbase = bptr;
+		tptr += (otemp->o_header.tsize + secalign) & ~secalign;
+		dptr += (otemp->o_header.dsize + secalign) & ~secalign;
+		bptr += (otemp->o_header.bsize + secalign) & ~secalign;
 
 		// For each symbol, (conditionally) add it to the ost
 		// For ARCHIVE markers, this adds the symbol for the file & returns
@@ -1684,27 +1570,8 @@ struct OHEADER * MakeOutputFile()
 		if (DoSymbols(otemp))
 			return NULL;
 
-		if (otemp->o_flags & O_ARCHIVE)
-		{
-			struct OFILE * oNext = otemp->o_next;
-
-			// Now that the archive is marked, remove it from list
-			if (oprev == NULL)
-				olist = otemp->o_next;
-			else
-				oprev->o_next = otemp->o_next;
-
-			if (otemp->o_image && !otemp->isArchiveFile)
-				free(otemp->o_image);
-
-			free(otemp);
-			otemp = oNext;
-		}
-		else
-		{
-			oprev = otemp;
-			otemp = otemp->o_next;
-		}
+		oprev = otemp;
+		otemp = otemp->o_next;
 	}
 
 	// Places all the externs, globals etc into the output symbol table
@@ -1716,7 +1583,7 @@ struct OHEADER * MakeOutputFile()
 
 	if (header == NULL)
 	{
-		printf("MakeOutputFile: out of memory!\n");
+		printf("MakeOutputObject: out of memory!\n");
 		return NULL;
 	}
 
@@ -1734,11 +1601,8 @@ struct OHEADER * MakeOutputFile()
 	// with the error condition
 	for(otemp=olist; otemp!=NULL; otemp=otemp->o_next)
 	{
-		if (!(otemp->o_flags & O_ARCHIVE))
-		{
-			ret |= RelocateSegment(otemp, T_TEXT); // TEXT segment relocations
-			ret |= RelocateSegment(otemp, T_DATA); // DATA segment relocations
-		}
+		ret |= RelocateSegment(otemp, T_TEXT); // TEXT segment relocations
+		ret |= RelocateSegment(otemp, T_DATA); // DATA segment relocations
 	}
 
 	// Done with global symbol hash tables
@@ -1901,24 +1765,6 @@ struct HREC * LookupARHREC(char * symbol)
 
 
 //
-// Find the index in the obj_segsize table for the passed in filename
-//
-int GetObjSegSizeIndex(char * name)
-{
-	int i;
-
-	for(i=0; i<(int)obj_index; i++)
-	{
-		if (strcmp(name, obj_fname[i]) == 0)
-			// Object file name was found!
-			return i;
-	}
-
-	return -1;
-}
-
-
-//
 // Add the imported symbols from this file to unresolved, and the global and
 // common (???) symbols to the exported hash table.
 //
@@ -1970,8 +1816,7 @@ int AddSymbols(struct OFILE * Ofile)
 		}
 		else if (type == T_GLBL)
 		{
-			// External symbol that is *not* in the current unit
-			// N.B.: Also, could be common symbol *in* current unit...!
+			// Global symbol that may or may not be in the current unit
 			hptr = LookupHREC(sstr + index);
 
 			if (hptr != NULL)
@@ -1979,26 +1824,20 @@ int AddSymbols(struct OFILE * Ofile)
 			// Otherwise, *maybe* add to unresolved list
 			else
 			{
-				// Check to see if this is a common symbol; if so, try to add
-				// it to the hash list...
+				// Check to see if this is a common symbol; if so, add it to
+				// the hash list...
 				if (value != 0)
 				{
 					// Actually, we need to convert this to a BSS symbol,
 					// increase the size of the BSS segment for this object, &
 					// add it to the hash list
-					uint32_t valueSave = value;
 					uint32_t bssLocation = Ofile->o_header.tsize + Ofile->o_header.dsize + Ofile->o_header.bsize;
 					Ofile->o_header.bsize += value;
+					Ofile->segSize[BSS] += value;
 					type |= T_BSS;
 					value = bssLocation;
 					PutLong(sfix + 4, type);
 					PutLong(sfix + 8, value);
-
-					// Also need to reset the size of the object's BSS section:
-					int i = GetObjSegSizeIndex(Ofile->o_name);
-//printf("AddSymbols: obj_segsize[%i][BSS] = %d (value = %d)\n", i, obj_segsize[i][BSS], value);
-					obj_segsize[i][BSS] += valueSave; // need to realign the section, but only *after* all the common symbols have been added from this unit... !!! FIX !!!
-//					obj_segsize[obj_index][2] = (GetLong(ptr + 12) + secalign) & ~secalign;
 
 					if (vflag > 1)
 						printf("AddSymbols: Resetting common label to BSS label\n");
@@ -2007,7 +1846,7 @@ int AddSymbols(struct OFILE * Ofile)
 						sstr + index, Ofile, value, type))
 						return 1;				// Error if addition failed
 				}
-				// Check for built-in externals...
+				// Make sure it's not a built-in external...
 				else if ((strcmp(sstr + index, "_TEXT_E") != 0)
 					&& (strcmp(sstr + index, "_DATA_E") != 0)
 					&& (strcmp(sstr + index, "_BSS_E") != 0))
@@ -2104,7 +1943,7 @@ int DoItem(struct OFILE * obj)
 	}
 
 	// Check archive name length
-	if (strlen(obj->o_arname) > FNLEN - 1)
+	if (strlen(obj->o_arname) > (FNLEN - 1))
 	{
 		printf("Archive name too long: %s\n", obj->o_arname);
 		return 1;
@@ -2121,44 +1960,41 @@ int DoItem(struct OFILE * obj)
 	Ofile->o_flags = obj->o_flags;
 	Ofile->o_image = obj->o_image;
 	Ofile->isArchiveFile = obj->isArchiveFile;
+	Ofile->segSize[TEXT] = obj->segSize[TEXT];
+	Ofile->segSize[DATA] = obj->segSize[DATA];
+	Ofile->segSize[BSS]  = obj->segSize[BSS];
 	char * ptr = obj->o_image;
 
-	// Don't do anything if this is just an ARCHIVE marker, just add the file
-	// to the olist
-	// (Shamus: N.B.: it does no such ARCHIVE thing ATM)
-	if (!(obj->o_flags & O_ARCHIVE))
+	Ofile->o_header.magic = GetLong(ptr);
+	Ofile->o_header.tsize = GetLong(ptr + 4);
+	Ofile->o_header.dsize = GetLong(ptr + 8);
+	Ofile->o_header.bsize = GetLong(ptr + 12);
+	Ofile->o_header.ssize = GetLong(ptr + 16);
+	Ofile->o_header.absrel.reloc.tsize = GetLong(ptr + 24);
+	Ofile->o_header.absrel.reloc.dsize = GetLong(ptr + 28);
+
+	// Round BSS off to alignment boundary (??? isn't this already done ???)
+	Ofile->o_header.bsize = (Ofile->o_header.bsize + secalign) & ~secalign;
+
+	if ((Ofile->o_header.dsize & 7) && wflag)
 	{
-		Ofile->o_header.magic = GetLong(ptr);
-		Ofile->o_header.tsize = GetLong(ptr + 4);
-		Ofile->o_header.dsize = GetLong(ptr + 8);
-		Ofile->o_header.bsize = GetLong(ptr + 12);
-		Ofile->o_header.ssize = GetLong(ptr + 16);
-		Ofile->o_header.absrel.reloc.tsize = GetLong(ptr + 24);
-		Ofile->o_header.absrel.reloc.dsize = GetLong(ptr + 28);
-
-		// Round BSS off to alignment boundary
-		Ofile->o_header.bsize = (Ofile->o_header.bsize + secalign) & ~secalign;
-
-		if ((Ofile->o_header.dsize & 7) && wflag)
-		{
-			printf("Warning: data segment size of ");
-			WriteARName(Ofile);
-			printf(" is not a phrase multiple\n");
-		}
-
-		// Check for odd segment sizes
-		if ((Ofile->o_header.tsize & 1) || (Ofile->o_header.dsize & 1)
-			|| (Ofile->o_header.bsize & 1))
-		{
-			printf("Error: odd-sized segment in ");
-			WriteARName(Ofile);
-			printf("; link aborted.\n");
-			return 1;
-		}
-
-		if (AddSymbols(Ofile))
-			return 1;
+		printf("Warning: data segment size of ");
+		WriteARName(Ofile);
+		printf(" is not a phrase multiple\n");
 	}
+
+	// Check for odd segment sizes
+	if ((Ofile->o_header.tsize & 1) || (Ofile->o_header.dsize & 1)
+		|| (Ofile->o_header.bsize & 1))
+	{
+		printf("Error: odd-sized segment in ");
+		WriteARName(Ofile);
+		printf("; link aborted.\n");
+		return 1;
+	}
+
+	if (AddSymbols(Ofile))
+		return 1;
 
 	// Add this file to the olist
 	if (olist == NULL)
@@ -2346,8 +2182,8 @@ int AddToProcessingList(char * ptr, char * fname, char * arname, uint8_t arFile,
 // Image size for include files is:
 // Header ....... 32 bytes
 // Data ......... dsize
-// Sym Fixups ... 2 * 12 bytes
-// Symbol Size .. 4 bytes (Value to include symbols and terminating null)
+// Sym fixups ... 2 * 12 bytes
+// Symbol size .. 4 bytes (Value to include symbols and terminating null)
 // Symbols ...... (strlen(sym1) + 1) + (strlen(sym2) + 1)
 // Terminate .... 4 bytes (0x00000000)
 //
@@ -2356,6 +2192,7 @@ int LoadInclude(char * fname, int handle, char * sym1, char * sym2, int segment)
 	char * ptr, * sptr;
 	int i;
 	unsigned symtype = 0;
+	uint32_t tSize = 0, dSize = 0, bSize = 0;
 
 	long fsize = FileSize(handle);		// Get size of include file
 	long dsize = (fsize + secalign) & ~secalign;	// Align size to boundary
@@ -2383,8 +2220,6 @@ int LoadInclude(char * fname, int handle, char * sym1, char * sym2, int segment)
 
 	close(handle);
 
-	strcpy(obj_fname[obj_index], PathTail(fname));
-
 	// Build this image's dummy header
 	PutLong(ptr, 0x00000107);              // Magic number
 
@@ -2393,21 +2228,15 @@ int LoadInclude(char * fname, int handle, char * sym1, char * sym2, int segment)
 		PutLong(ptr+4, dsize);             // Text size
 		PutLong(ptr+8, 0L);                // Data size
 		symtype = 0x05000000;
-		obj_segsize[obj_index][0] = dsize;
-		obj_segsize[obj_index][1] = 0;
-		obj_segsize[obj_index][2] = 0;
+		tSize = dsize;
 	}
 	else
 	{
 		PutLong(ptr+4, 0L);                // Text size
 		PutLong(ptr+8, dsize);             // Data size
 		symtype = 0x07000000;
-		obj_segsize[obj_index][0] = 0;
-		obj_segsize[obj_index][1] = dsize;
-		obj_segsize[obj_index][2] = 0;
+		dSize = dsize;
 	}
-
-	obj_index++;                           // Increment object count
 
 	PutLong(ptr+12, 0L);                   // BSS size
 	PutLong(ptr+16, 24);                   // Symbol table size
@@ -2446,7 +2275,7 @@ int LoadInclude(char * fname, int handle, char * sym1, char * sym2, int segment)
 
 	PutLong(sptr, 0L);                     // Terminating long for object file
 
-	return AddToProcessingList(ptr, fname, nullStr, 0, obj_segsize[obj_index - 1][0], obj_segsize[obj_index - 1][1], obj_segsize[obj_index - 1][2]);
+	return AddToProcessingList(ptr, fname, nullStr, 0, tSize, dSize, bSize);
 }
 
 
@@ -2459,6 +2288,8 @@ int LoadInclude(char * fname, int handle, char * sym1, char * sym2, int segment)
 //
 int LoadObject(char * fname, int fd, char * ptr)
 {
+	uint32_t tSize = 0, dSize = 0, bSize = 0;
+
 	if (ptr == NULL)
 	{
 		long size = FileSize(fd);
@@ -2482,19 +2313,14 @@ int LoadObject(char * fname, int fd, char * ptr)
 			return 1;
 		}
 
-		// SCPCD: get the name of the file instead of all pathname
-		strcpy(obj_fname[obj_index], PathTail(fname));
-		obj_segsize[obj_index][0] = (GetLong(ptr + 4) + secalign) & ~secalign;
-		obj_segsize[obj_index][1] = (GetLong(ptr + 8) + secalign) & ~secalign;
-		obj_segsize[obj_index][2] = (GetLong(ptr + 12) + secalign) & ~secalign;
-		obj_index++;
-
-		close(fd);                                            // Close file
+		tSize = (GetLong(ptr + 4)  + secalign) & ~secalign;
+		dSize = (GetLong(ptr + 8)  + secalign) & ~secalign;
+		bSize = (GetLong(ptr + 12) + secalign) & ~secalign;
+		close(fd);
 	}
 
 	// Now add this image to the list of pending ofiles (plist)
-	// This routine is shared by LoadInclude after it builds the image
-	return AddToProcessingList(ptr, fname, nullStr, 0, obj_segsize[obj_index - 1][0], obj_segsize[obj_index - 1][1], obj_segsize[obj_index - 1][2]);
+	return AddToProcessingList(ptr, fname, nullStr, 0, tSize, dSize, bSize);
 }
 
 
@@ -2608,13 +2434,11 @@ int LoadArchive(char * fname, int fd)
 				objName[lastChar] = 0;
 
 //printf("Processing object \"%s\" (size == %i, obj_index == %i)...\n", objName, atoi(objSize), obj_index);
-			strcpy(obj_fname[obj_index], objName);
-			obj_segsize[obj_index][0] = (GetLong(ptr + 60 + 4) + secalign) & ~secalign;
-			obj_segsize[obj_index][1] = (GetLong(ptr + 60  + 8) + secalign) & ~secalign;
-			obj_segsize[obj_index][2] = (GetLong(ptr + 60  + 12) + secalign) & ~secalign;
-			obj_index++;
+			uint32_t tSize = (GetLong(ptr + 60 + 4)  + secalign) & ~secalign;
+			uint32_t dSize = (GetLong(ptr + 60 + 8)  + secalign) & ~secalign;
+			uint32_t bSize = (GetLong(ptr + 60 + 12) + secalign) & ~secalign;
 
-			if (AddToProcessingList(ptr + 60, objName, fname, 1, obj_segsize[obj_index - 1][0], obj_segsize[obj_index - 1][1], obj_segsize[obj_index - 1][2]))
+			if (AddToProcessingList(ptr + 60, objName, fname, 1, tSize, dSize, bSize))
 				return 1;
 		}
 
@@ -3210,7 +3034,6 @@ void ShowHelp(void)
 void ExitLinker(void)
 {
 	char tempbuf[128];
-	char * c;
 
 	// Display link status if verbose mode
 	if (vflag)
@@ -3220,7 +3043,7 @@ void ExitLinker(void)
 	if (waitflag)
 	{
 		printf("\nPress the [RETURN] key to continue. ");
-		c = fgets(tempbuf, 128, stdin);
+		char * c = fgets(tempbuf, 128, stdin);
 	}
 
 	exit(errflag);
@@ -3229,14 +3052,10 @@ void ExitLinker(void)
 
 int main(int argc, char * argv[])
 {
-	char * s = NULL;				// String pointer for "getenv"
-	struct HREC * utemp;			// Temporary hash record pointer
-	struct OHEADER * header;		// Pointer to output header structure
-
 	cmdlnexec = argv[0];			// Obtain executable name
-	s = getenv("RLNPATH");
+	char * s = getenv("RLNPATH");	// Attempt to obtain env variable
 
-	if (s)							// Attempt to obtain env variable
+	if (s)
 		strcpy(libdir, s);			// Store it if found
 
 	// Initialize some vars
@@ -3252,7 +3071,7 @@ int main(int argc, char * argv[])
 
 	if (!zflag && !vflag)
 	{
-		ShowVersion();			// Display version information
+		ShowVersion();				// Display version information
 		versflag = 1;				// We've dumped the version banner
 	}
 
@@ -3285,7 +3104,7 @@ int main(int argc, char * argv[])
 		// Don't list them if two -u's or more
 		if (uflag < 2)
 		{
-			utemp = unresolved;
+			struct HREC * utemp = unresolved;
 
 			while (utemp != NULL)
 			{
@@ -3303,8 +3122,8 @@ int main(int argc, char * argv[])
 		}
 	}
 
-	// Make one output file from input objs
-	header = MakeOutputFile();
+	// Make one output object from input objects
+	struct OHEADER * header = MakeOutputObject();
 
 	if (header == NULL)
 	{
@@ -3315,27 +3134,20 @@ int main(int argc, char * argv[])
 	// Partial linking
 	if (pflag)
 	{
-		printf("TO DO:Partial linking\n");
+		printf("TO DO: Partial linking\n");
 		errflag = 1;
 	}
 	// Relocatable linking
 	else if (!aflag)
 	{
-		printf("TO DO:Relocatable linking\n");
+		printf("TO DO: Relocatable linking\n");
 		errflag = 1;
 	}
 	// Absolute linking
 	else
 	{
 		if (vflag)
-		{
-			printf("Absolute linking ");
-
-			if (cflag)
-				printf("(COF)\n"); 
-			else
-				printf("(ABS)\n");
-		}
+			printf("Absolute linking (%s)\n", (cflag ? "COF" : "ABS"));
 
 		if (vflag > 1)
 			printf("Header magic is 0x%04X\n", (unsigned int)header->magic);
