@@ -22,7 +22,7 @@ unsigned sflag = 0;					// Output only global symbols
 unsigned vflag = 0;					// Verbose flag
 unsigned wflag = 0;					// Show warnings flag
 unsigned zflag = 0;					// Suppress banner flag
-unsigned pflag = 0, uflag = 0;		// Unimplemented flags
+unsigned pflag = 0, uflag = 0;		// Unimplemented flags (partial link, don't abort on unresolved symbols)
 unsigned hd = 0;					// Index of next file handle to fill
 unsigned secalign = 7;				// Section Alignment (8=phrase)
 unsigned tbase = 0;					// TEXT base address
@@ -1050,11 +1050,11 @@ int WriteOutputFile(struct OHEADER * header)
 	if (strchr(ofile, '.') == NULL)
 	{
 		if (aflag && cflag)
-			strcat(ofile, ".cof");		// COF files
+			strcat(ofile, ".cof");		// COF files (a type of abs)
 		else if (aflag && !cflag)
 			strcat(ofile, ".abs");		// ABS files
 		else
-			strcat(ofile, ".o");		// Object files (partial linking etc)
+			strcat(ofile, ".o");		// Object files (partial linking, etc)
 	}
 
 	FILE * fd = fopen(ofile, "wb");		// Attempt to open output file
@@ -1157,18 +1157,20 @@ int WriteOutputFile(struct OHEADER * header)
 	}
 
 	// Write the header, but not if noheaderflag
-	// Absolute (ABS) header
-	if (!cflag)
+	if (!noheaderflag)
 	{
-		if (!noheaderflag)
+		// Absolute (ABS) header
+		if (!cflag)
+		{
 			if (fwrite(himage, 36, 1, fd) != 1)
 				goto werror;
-	}
-	// Absolute (COF) header
-	else
-	{
-		if (fwrite(himage, 168, 1, fd) != 1)
-			goto werror;
+		}
+		// Absolute (COF) header
+		else
+		{
+			if (fwrite(himage, 168, 1, fd) != 1)
+				goto werror;
+		}
 	}
 
 	// Write the TEXT segment of each object file
@@ -1215,7 +1217,12 @@ int WriteOutputFile(struct OHEADER * header)
 		}
 	}
 
-	if (!noheaderflag)
+//wha?	if (!noheaderflag)
+	// This isn't quite right, but it's closer...
+	// (the l and s flags tell the linker to output local & global symbols
+	//  in the symbol table, so it seems there's some other thing that's a
+	// default set somewhere. Not 100% sure. Setting -s kills -l, BTW...)
+	if (lflag || sflag)
 	{
 		// Write the symbols table and string table
 		// Absolute (COF) symbol/string table
@@ -3008,10 +3015,11 @@ void ShowHelp(void)
 	printf("   -d                      wait for key after link\n");
 	printf("   -e                      output COF absolute file\n");
 	printf("   -g                      output source-level debugging\n");
-	printf("   -i <fname> <label>      incbin <fname> and set <label>\n");
+	printf("   -i <fname> <label>      incbin <fname> and set <label> (trunc to 8 chars)\n");
+	printf("   -ii <fname> <label>     incbin <fname> and set <label> (no truncation)\n");
 	printf("   -l                      add local symbols\n");
 	printf("   -m                      produce load symbols map\n");
-	printf("   -n                      output no file header to .abs file\n");
+	printf("   -n                      output no file header to absolute file\n");
 	printf("   -o <fname>              set output name\n");
 	printf("   -r<size>                section alignment size\n");
 	printf("                           w: word (2 bytes)\n");
@@ -3019,7 +3027,7 @@ void ShowHelp(void)
 	printf("                           p: phrase (8 bytes, default alignment)\n");
 	printf("                           d: double phrase (16 bytes)\n");
 	printf("                           q: quad phrase (32 bytes)\n");
-	printf("   -s                      output only global symbols\n");
+	printf("   -s                      output only global symbols (supresses -l)\n");
 	printf("   -u                      allow unresolved symbols (experimental)\n");
 	printf("   -v                      set verbose mode\n");
 	printf("   -w                      show linker warnings\n");
