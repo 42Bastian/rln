@@ -1,6 +1,6 @@
 //
 // RLN - Reboot's Linker for the Atari Jaguar console system
-// Copyright (C) 199x, Allan K. Pratt, 2014-2015 Reboot & Friends
+// Copyright (C) 199x, Allan K. Pratt, 2014-2017 Reboot & Friends
 //
 
 #include "rln.h"
@@ -585,6 +585,7 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 	unsigned glblreloc;		// Global relocation flag
 	unsigned absreloc;		// Absolute relocation flag
 	unsigned relreloc;		// Relative relocation flag
+	unsigned wordreloc;		// Relocate word only flag
 	unsigned swcond;		// Switch statement condition
 	unsigned relocsize;		// Relocation record size
 
@@ -664,8 +665,9 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 		addr = GetLong(rptr);
 		rflg = GetLong(rptr + 4);
 		glblreloc = (rflg & 0x00000010 ? 1 : 0);// Set global relocation flag
-		absreloc = (rflg & 0x00000040 ? 1 : 0); // Set absolute relocation flag
-		relreloc = (rflg & 0x000000A0 ? 1 : 0); // Set relative relocation flag
+		absreloc  = (rflg & 0x00000040 ? 1 : 0); // Set absolute relocation flag
+		relreloc  = (rflg & 0x000000A0 ? 1 : 0); // Set relative relocation flag
+		wordreloc = (rflg & 0x00000002 ? 1 : 0); // Set word relocation flag
 
 		// Additional processing required for global relocations
 		if (glblreloc)
@@ -682,9 +684,10 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 			newdata = GetLong(ost + ((ssidx - 1) * 12) + 8);
 		}
 
-		// Obtain the existing long word segment data and flip words if the
-		// relocation flags indicate it relates to a RISC MOVEI instruction
-		olddata = GetLong(sptr + addr);
+		// Obtain the existing long word (or word) segment data and flip words
+		// if the relocation flags indicate it relates to a RISC MOVEI
+		// instruction
+		olddata = (wordreloc ? GetWord(sptr + addr) : GetLong(sptr + addr));
 
 		if (rflg & 0x01)
 			olddata = _SWAPWORD(olddata);
@@ -734,7 +737,10 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 			if (rflg & 0x01)
 				newdata = _SWAPWORD(newdata);
 
-			PutLong(sptr + addr, newdata);
+			if (wordreloc)
+				PutWord(sptr + addr, newdata);
+			else
+				PutLong(sptr + addr, newdata);
 		}
 		else if (relreloc)
 		{
@@ -2990,7 +2996,7 @@ void ShowVersion(void)
 		"| |  | | | | |\n"
 		"|_|  |_|_| |_|\n"
 		"\nReboot's Linker for Atari Jaguar\n"
-		"Copyright (c) 199x Allan K. Pratt, 2014-2015 Reboot\n"
+		"Copyright (c) 199x Allan K. Pratt, 2014-2017 Reboot\n"
 		"V%i.%i.%i %s (%s)\n\n", MAJOR, MINOR, PATCH, __DATE__, PLATFORM);
 	}
 }

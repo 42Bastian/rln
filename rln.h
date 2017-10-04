@@ -44,7 +44,7 @@
 
 #define MAJOR   1			// Major version number
 #define MINOR   5			// Minor version number
-#define PATCH   1			// Patch release number
+#define PATCH   2			// Patch release number
 
 #ifdef WIN32
 #define PLATFORM     "Win32"		// Release platform - Windows
@@ -90,22 +90,22 @@ struct OHEADER
 	uint32_t bsize;
 	uint32_t ssize;
 	union {
-		struct {					// For .o 
+		struct {					// For .o
 			uint32_t tsize;			// Text relocation size
 			uint32_t dsize;			// Data relocation size
 			uint8_t reserved[12];
 		} reloc;
-		struct {					// For .abs 
-			uint32_t stksize;		// Unused 
-			uint32_t tstart;		// Start of TEXT 
-			uint32_t rbflag;		// -1 if no fixups at all 
-			uint32_t dstart;		// Start of DATA 
+		struct {					// For .abs
+			uint32_t stksize;		// Unused
+			uint32_t tstart;		// Start of TEXT
+			uint32_t rbflag;		// -1 if no fixups at all
+			uint32_t dstart;		// Start of DATA
 			uint32_t bstart;		// Start of BSS
 		} abs;
 	} absrel;
-	uint8_t * ostbase;				// Base of output symbol table 
+	uint8_t * ostbase;				// Base of output symbol table
 	uint32_t fsize;					// Length of fixups
-	uint8_t * fixups;				// Start of fixups 
+	uint8_t * fixups;				// Start of fixups
 };
 
 #define new_oheader()   (struct OHEADER *)malloc(sizeof(struct OHEADER))
@@ -118,7 +118,7 @@ struct ARHEADER
 	uint8_t a_gid;
 	uint16_t a_fimode;
 	uint32_t a_fsize;
-	uint16_t reserved;				// Two bytes zeroes btwn header & file 
+	uint16_t reserved;				// Two bytes zeroes btwn header & file
 };
 
 #define new_arheader()  (struct ARHEADER *)malloc(sizeof(struct ARHEADER))
@@ -162,7 +162,7 @@ struct OFILE
 
 struct SYMREC
 {
-	uint8_t s_name[SYMLEN];			// Including null terminator 
+	uint8_t s_name[SYMLEN];			// Including null terminator
 	uint16_t s_type;
 	uint32_t s_value;
 	struct SYMREC * s_next;
