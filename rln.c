@@ -1,6 +1,6 @@
 //
 // RLN - Reboot's Linker for the Atari Jaguar console system
-// Copyright (C) 199x, Allan K. Pratt, 2014-2017 Reboot & Friends
+// Copyright (C) 199x, Allan K. Pratt, 2014-2018 Reboot & Friends
 //
 
 #include "rln.h"
@@ -71,6 +71,10 @@ struct HREC * LookupHREC(char *);
 char * PathTail(char *);
 void ShowHelp(void);
 void ShowVersion(void);
+int OSTLookup(char * sym);
+int OSTAdd(char * name, int type, long value);
+int ProcessFiles(void);
+int doargs(int argc, char * argv[]);
 
 
 //
@@ -586,8 +590,11 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 	unsigned absreloc;		// Absolute relocation flag
 	unsigned relreloc;		// Relative relocation flag
 	unsigned wordreloc;		// Relocate word only flag
+	unsigned opreloc;		// Relocate OP data address only flag
 	unsigned swcond;		// Switch statement condition
 	unsigned relocsize;		// Relocation record size
+	unsigned saveBits;		// OP data leftover bits save
+	unsigned saveBits2;
 
 	// If there is no TEXT relocation data for the selected object file segment
 	// then update the COF TEXT segment offset allowing for the phrase padding
@@ -668,6 +675,7 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 		absreloc  = (rflg & 0x00000040 ? 1 : 0); // Set absolute relocation flag
 		relreloc  = (rflg & 0x000000A0 ? 1 : 0); // Set relative relocation flag
 		wordreloc = (rflg & 0x00000002 ? 1 : 0); // Set word relocation flag
+		opreloc   = (rflg & 0x00000004 ? 1 : 0); // Set OP relocation flag
 
 		// Additional processing required for global relocations
 		if (glblreloc)
@@ -689,6 +697,18 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 		// instruction
 		olddata = (wordreloc ? GetWord(sptr + addr) : GetLong(sptr + addr));
 
+		// If it's a OP QUAD relocation, get the data out of the DATA bits.
+		// Note that because we can't afford to lose the bottom 3 bits of the
+		// relocation record, we lose 3 off the top--which means the maximum
+		// this can store is $1FFFF8 (vs. $FFFFF8).
+		if (opreloc)
+		{
+			saveBits2 = (GetLong(sptr + addr + 8) & 0xE0000000) >> 8; // Upper 3 of data addr
+			saveBits = olddata & 0x7FF;
+			olddata = (olddata & 0xFFFFF800) >> 11;
+			olddata |= saveBits2; // Restore upper 3 bits of data addr
+		}
+
 		if (rflg & 0x01)
 			olddata = _SWAPWORD(olddata);
 
@@ -706,7 +726,7 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 				break;
 			case 0x00000400:          // TEXT segment relocation record
 				// SCPCD : the symbol point to a text segment, we should use the textoffset
-					newdata = tbase + textoffset + olddata;
+				newdata = tbase + textoffset + olddata;
 
 				break;
 			case 0x00000600:          // DATA segment relocation record
@@ -739,6 +759,17 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 
 			if (wordreloc)
 				PutWord(sptr + addr, newdata);
+			else if (opreloc)
+			{
+				if (vflag > 1)
+					printf("OP reloc: oldata=$%X, newdata=$%X\n", olddata, newdata);
+
+				newdata = ((newdata & 0x00FFFFF8) << 8) | saveBits;
+				PutLong(sptr + addr, newdata);
+				// Strip out extraneous data hitchhikers from 2nd phrase...
+				newdata = GetLong(sptr + addr + 8) & 0x007FFFFF;
+				PutLong(sptr + addr + 8, newdata);
+			}
 			else
 				PutLong(sptr + addr, newdata);
 		}
@@ -2996,7 +3027,7 @@ void ShowVersion(void)
 		"| |  | | | | |\n"
 		"|_|  |_|_| |_|\n"
 		"\nReboot's Linker for Atari Jaguar\n"
-		"Copyright (c) 199x Allan K. Pratt, 2014-2017 Reboot\n"
+		"Copyright (c) 199x Allan K. Pratt, 2014-2018 Reboot\n"
 		"V%i.%i.%i %s (%s)\n\n", MAJOR, MINOR, PATCH, __DATE__, PLATFORM);
 	}
 }
