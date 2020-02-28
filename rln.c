@@ -2448,7 +2448,8 @@ int LoadArchive(char * fname, int fd)
 		}
 
 		// Check to see if a long filename was requested
-		if (objName[0] == 0x20)
+		// N.B.: " " is for GNU archives, and "/" is for BSD archives
+		if ((objName[0] == 0x20) || (objName[0] == '/'))
 		{
 			uint32_t fnSize = atoi(objName + 1);
 
