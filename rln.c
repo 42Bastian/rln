@@ -3115,6 +3115,21 @@ int main(int argc, char * argv[])
 		ExitLinker();
 	}
 
+	// Check to see if include paths actually exist
+	if (strlen(libdir) > 0)
+	{
+		DIR * test = opendir(libdir);
+
+		if (test == NULL)
+		{
+			printf("Invalid include path: %s\n", libdir);
+			errflag = 1;
+			ExitLinker();
+		}
+
+		closedir(test);
+	}
+
 	if (!zflag && !vflag)
 	{
 		ShowVersion();				// Display version information
