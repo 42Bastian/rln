@@ -3085,6 +3085,7 @@ void ShowHelp(void)
 	printf("   -u                      allow unresolved symbols (experimental)\n");
 	printf("   -v                      set verbose mode\n");
 	printf("   -w                      show linker warnings\n");
+	printf("   -y <fname>              set include path (also set by RLNPATH)\n");
 	printf("   -z                      suppress banner\n");
 	printf("\n");
 }
