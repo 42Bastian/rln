@@ -2851,6 +2851,10 @@ int doargs(int argc, char * argv[])
 			case 'e':
 			case 'E':					// Output COFF (absolute only)
 				cflag = 1;
+
+				if (noheaderflag)
+					printf("Warning: -e overridden by -n, output will be headerless\n");
+
 				break;
 			case 'g':
 			case 'G':					// Output source level debugging
@@ -2908,6 +2912,9 @@ int doargs(int argc, char * argv[])
 			case 'N':					// Output no header to .abs file
 				if (noheaderflag)
 					warn('n', 1);
+
+				if (cflag)
+					printf("Warning: -e overridden by -n, output will be headerless\n");
 
 				noheaderflag = 1;
 				break;
@@ -3060,7 +3067,7 @@ void ShowHelp(void)
 	printf("\n");
 	printf("Options:\n");
 	printf("   -? or -h                display usage information\n");
-	printf("   -a <text> <data> <bss>  output absolute file\n");
+	printf("   -a <text> <data> <bss>  output absolute file (default: ABS)\n");
 	printf("                           hex value: segment address\n");
 	printf("                           r: relocatable segment\n");
 	printf("                           x: contiguous segment\n");
@@ -3073,7 +3080,7 @@ void ShowHelp(void)
 	printf("   -ii <fname> <label>     incbin <fname> and set <label> (no truncation)\n");
 	printf("   -l                      add local symbols\n");
 	printf("   -m                      produce load symbols map\n");
-	printf("   -n                      output no file header to absolute file\n");
+	printf("   -n                      output no file header to absolute file (overrides -e)\n");
 	printf("   -o <fname>              set output name\n");
 	printf("   -r<size>                section alignment size\n");
 	printf("                           w: word (2 bytes)\n");
