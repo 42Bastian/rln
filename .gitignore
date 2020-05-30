@@ -1,0 +1,11 @@
+rln-*
+rln
+rln.exe
+*.o
+*~
+.*.swp
+bugs*/
+parse*
+versions/
+patches/
+ar.html
