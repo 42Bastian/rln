@@ -1,5 +1,5 @@
 #
-# Makefile for Reboot's Linker for Jaguar
+# Makefile for Renamed Linker for Jaguar
 #
 RM =/bin/rm -f
 CC = gcc
@@ -21,18 +21,18 @@ endif
 endif
 
 CFLAGS = -g -I. -D$(SYSTYPE) -O2 -Wno-format
-SRCS = rln.c 
+SRCS = rln.c
 OBJS = rln.o
 
-.c.o: 
-	$(RM) $@ 
-	$(CROSS)$(CC) $(CFLAGS) -c $*.c 
+.c.o:
+	$(RM) $@
+	$(CROSS)$(CC) $(CFLAGS) -c $*.c
 
-all: $(PROGNAME) 
+all: $(PROGNAME)
 
-$(PROGNAME) : $(OBJS) 
-	$(CROSS)$(CC) $(CFLAGS) -o $(PROGNAME) $(OBJS) $(LIBS) 
+$(PROGNAME) : $(OBJS)
+	$(CROSS)$(CC) $(CFLAGS) -o $(PROGNAME) $(OBJS) $(LIBS)
 
-clean: 
-	$(RM) $(OBJS) $(PROGNAME) $(PROGNAME).exe *~ 
+clean:
+	$(RM) $(OBJS) $(PROGNAME) $(PROGNAME).exe *~
 

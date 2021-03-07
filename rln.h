@@ -1,6 +1,6 @@
 //
-// RLN - Reboot's Linker for the Atari Jaguar console system
-// Copyright (C) 199x Allan K. Pratt, 2011-2018 Reboot & Friends
+// RLN - Renamed Linker for the Atari Jaguar console system
+// Copyright (C) 199x Allan K. Pratt, 2011-2021 Reboot & Friends
 //
 
 #ifndef __RLN_H__
@@ -43,8 +43,8 @@
 #endif
 
 #define MAJOR   1			// Major version number
-#define MINOR   6			// Minor version number
-#define PATCH   4			// Patch release number
+#define MINOR   7			// Minor version number
+#define PATCH   0			// Patch release number
 
 #ifdef WIN32
 #define PLATFORM     "Win32"		// Release platform - Windows

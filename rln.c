@@ -1,6 +1,6 @@
 //
-// RLN - Reboot's Linker for the Atari Jaguar console system
-// Copyright (C) 199x, Allan K. Pratt, 2014-2018 Reboot & Friends
+// RLN - Renamed Linker for the Atari Jaguar console system
+// Copyright (C) 199x, Allan K. Pratt, 2014-2021 Reboot & Friends
 //
 
 #include "rln.h"
@@ -3050,8 +3050,8 @@ void ShowVersion(void)
 		"| '__| | '_  \\\n"
 		"| |  | | | | |\n"
 		"|_|  |_|_| |_|\n"
-		"\nReboot's Linker for Atari Jaguar\n"
-		"Copyright (c) 199x Allan K. Pratt, 2014-2018 Reboot\n"
+		"\nRenamed Linker for Atari Jaguar\n"
+		"Copyright (c) 199x Allan K. Pratt, 2014-2021 Reboot & Friends\n"
 		"V%i.%i.%i %s (%s)\n\n", MAJOR, MINOR, PATCH, __DATE__, PLATFORM);
 	}
 }
