@@ -33,7 +33,6 @@ unsigned dataoffset = 0;			// COF DATA segment offset
 unsigned bssoffset = 0;				// COF BSS segment offset
 unsigned displaybanner = 1;			// Display version banner
 unsigned symoffset = 0;				// Symbol table offset in output file
-unsigned dbgsymbase = 0;			// Debug symbol base address
 int noheaderflag = 0;				// No header flag for ABS files
 int hflags;							// Value of the arg to -h option
 int ttype, dtype, btype;			// Type flag: 0, -1, -2, -3, -4
@@ -55,13 +54,12 @@ char * arPtr[512];
 uint32_t arIndex = 0;
 struct HREC * htable[NBUCKETS];		// Hash table
 struct HREC * unresolved = NULL;	// Pointer to unresolved hash list
-char * ost;							// Output symbol table
-char * ost_ptr;						// Output symbol table; current pointer
-char * ost_end;						// Output symbol table; end pointer
-char * oststr;						// Output string table
-char * oststr_ptr;					// Output string table; current pointer
-char * oststr_end;					// Output string table; end pointer
-int ost_index = 0;					// Index of next ost addition
+struct SYMREC * ost;				// Output symbol table
+char * oststr = NULL;				// Output string table
+char * oststr_ptr = NULL;			// Output string table; current pointer
+char * oststr_end = NULL;			// Output string table; end pointer
+int ost_index = 0;					// Index of next free ost entry
+int ost_size = 0;					// Size of ost
 uint8_t nullStr[1] = "\x00";		// Empty string
 struct HREC * arSymbol = NULL;		// Pointer to AR symbol table
 
@@ -139,6 +137,7 @@ int DoSymbols(struct OFILE * ofile)
 	int type;
 	long value;
 	int index;
+	char *string;
 	int j;
 	struct HREC * hptr;
 	uint32_t tsoSave, dsoSave, bsoSave;
@@ -166,6 +165,7 @@ int DoSymbols(struct OFILE * ofile)
 		index = GetLong(symptr + 0);	// Obtain symbol string index
 		type  = GetLong(symptr + 4);	// Obtain symbol type
 		value = GetLong(symptr + 8);	// Obtain symbol value
+		string = index ? symend + index : "";
 
 		// Global/External symbols have a pre-processing stage
 		// N.B.: This destroys the t/d/bsegoffset discovered above. So if a
@@ -176,21 +176,21 @@ int DoSymbols(struct OFILE * ofile)
 			// Obtain the string table index for the relocation symbol, look
 			// for it in the globals hash table to obtain information on that
 			// symbol.
-			hptr = LookupHREC(symend + index);
+			hptr = LookupHREC(string);
 
 			if (hptr == NULL)
 			{
 				// Try to find it in the OST
-				int ostIndex = OSTLookup(symend + index);
+				int ostIndex = OSTLookup(string);
 
 				if (ostIndex == -1)
 				{
-					printf("DoSymbols(): Symbol not found in hash table: '%s' (%s)\n", symend + index, ofile->o_name);
+					printf("DoSymbols(): Symbol not found in hash table: '%s' (%s)\n", string, ofile->o_name);
 					return 1;
 				}
 
 				if (vflag > 1)
-					printf("DoSymbols(): Skipping symbol '%s' (%s) found in OST...\n", symend + index, ofile->o_name);
+					printf("DoSymbols(): Skipping symbol '%s' (%s) found in OST...\n", string, ofile->o_name);
 
 				// If the symbol is not in any .a or .o units, it must be one
 				// of the injected ones (_TEXT_E, _DATA_E, or _BSS_E), so skip
@@ -230,7 +230,7 @@ int DoSymbols(struct OFILE * ofile)
 					break;
 				default:
 					if (vflag > 1)
-						printf("DoSymbols: No adjustment made for symbol: %s (%s) = %X\n", symend + index, ofile->o_name, hptr->h_value);
+						printf("DoSymbols: No adjustment made for symbol: %s (%s) = %X\n", string, ofile->o_name, hptr->h_value);
 				}
 			}
 		}
@@ -244,26 +244,21 @@ int DoSymbols(struct OFILE * ofile)
 		if (type & 0xF0000000)
 		{
 			// DEBUG SYMBOL
-			// Set the correct debug symbol base address (TEXT segment)
-#if 0
-			dbgsymbase = 0;
-
-			for(j=0; (unsigned)j<dosymi; j++)
-				dbgsymbase += obj_segsize[j][0];
-#else
-			dbgsymbase = ofile->segBase[TEXT];
-#endif
-
 			switch (type & 0xFF000000)
 			{
-			case 0x64000000:
-				value = tval + dbgsymbase;
+			case 0x64000000: // Primary source file path and/or name
+			case 0x84000000: // Included source file path and/or name
+			case 0x44000000: // Text line number
+				value = tbase + tsegoffset + value;
 				break;
-			case 0x44000000:
-			case 0x46000000:
-			case 0x48000000:
-				value = tval + dbgsymbase + value;
+			case 0x46000000: // Data line number (Not used by GCC/rmac)
+				value = dbase + dsegoffset + value;
+				break;
+			case 0x48000000: // BSS line number (Not used by GCC/rmac)
+				value = bbase + bsegoffset + value;
 			default:
+				// All other debug symbols don't need to be relocated
+				// XXX Not true, but matches ALN behavior.
 				break;
 			}
 
@@ -311,13 +306,13 @@ int DoSymbols(struct OFILE * ofile)
 		if (isglobal(type) || lflag)
 		{
 			if (vflag > 1)
-				printf("DoSymbols: Adding symbol: %s (%s) to OST...\n", symend + index, ofile->o_name);
+				printf("DoSymbols: Adding symbol: %s (%s) to OST...\n", string, ofile->o_name);
 
-			index = OSTAdd(symend + index, type, value);
+			index = OSTAdd(index ? string : NULL, type, value);
 
 			if (index == -1)
 			{
-				printf("DoSymbols(): Failed to add symbol '%s' to OST!\n", symend + index);
+				printf("DoSymbols(): Failed to add symbol '%s' to OST!\n", string);
 				return 1;
 			}
 		}
@@ -394,62 +389,63 @@ long DoCommon(void)
 //
 int OSTAdd(char * name, int type, long value)
 {
-	int ost_offset_p, ost_offset_e = 0;	// OST table offsets for position calcs
+	int ost_offset_p = 0, ost_offset_e;	// OST table offsets for position calcs
 	int ostresult;						// OST index result
-	int slen = strlen(name);
+	int slen;							// String length, including terminator
 
-	// If the OST or OST string table has not been initialised then do so
-	if (ost_index == 0)
-	{
-		ost = malloc(OST_BLOCK);
-		oststr = malloc(OST_BLOCK);
-
-		if (ost == NULL)
+	// If this is a debug symbol and the include debug symbol flag (-g) is not
+	// set then do nothing
+	if ((type & 0xF0000000) && !gflag)
 		{
-			printf("OST memory allocation error.\n");
-			return -1;
+		// Do nothing
+		return 0;
 		}
 
-		if (oststr == NULL)
-		{
-			printf("OSTSTR memory allocation error.\n");
-			return -1;
-		}
-
-		ost_ptr = ost;						// Set OST start pointer
-		ost_end = ost + OST_BLOCK;			// Set OST end pointer
-
-		PutLong(oststr, 0x00000004);		// Just null long for now
-		oststr_ptr = oststr + 4;			// Skip size of str table long (incl null long)
-		PutLong(oststr_ptr, 0x00000000);	// Null terminating long
-		oststr_end = oststr + OST_BLOCK;
-	}
+	if (!name || !name[0])
+		slen = 0;
 	else
-	{
-		// If next symbol record exceeds current allocation then expand symbol
-		// table and/or symbol string table.
-		ost_offset_p = (ost_ptr - ost);
-		ost_offset_e = (ost_end - ost);
+		slen = strlen(name) + 1;
 
-		// 3 x uint32_t (12 bytes)
-		if ((ost_ptr + 12) > ost_end)
+	// Get symbol index in OST, if any (-1 if not found)
+	ostresult = slen ? OSTLookup(name) : -1;
+
+	// If the symbol is in the output symbol table and the bflag is set
+	// (don't remove multiply defined locals) and this is not an
+	// external/global symbol, or the gflag (output debug  symbols) is
+	// set and this a debug symbol, *** OR *** the symbol is not in the
+	// output symbol table then add it.
+	if ((ostresult != -1) && !(bflag && !(type & 0x01000000))
+		&& !(gflag && (type & 0xF0000000)))
+	{
+		return ostresult;
+	}
+
+	// If the OST has not been initialised, or more space is needed, then
+	// allocate it.
+	if ((ost_index + 1) > ost_size)
 		{
-			// We want to allocate the current size of the OST + another block.
-			ost = realloc(ost, ost_offset_e + OST_BLOCK);
+		if (ost_size == 0)
+			ost_size = OST_SIZE_INIT;
+
+		ost_size *= 2;
+
+		ost = realloc(ost, ost_size * sizeof(ost[0]));
 
 			if (ost == NULL)
 			{
-				printf("OST memory reallocation error.\n");
+			printf("OST memory allocation error.\n");
 				return -1;
 			}
-
-			ost_ptr = ost + ost_offset_p;
-			ost_end = (ost + ost_offset_e) + OST_BLOCK;
 		}
 
+	if (slen)
+	{
 		ost_offset_p = (oststr_ptr - oststr);
 		ost_offset_e = (oststr_end - oststr);
 
+		// If the OST data has been exhausted, allocate another chunk.
+		if (((oststr_ptr + slen + 4) > oststr_end))
+		{
 		// string length + terminating NULL + uint32_t (terminal long)
 		if ((oststr_ptr + (slen + 1 + 4)) > oststr_end)
 		{
@@ -463,58 +459,32 @@ int OSTAdd(char * name, int type, long value)
 
 			oststr_ptr = oststr + ost_offset_p;
 			oststr_end = (oststr + ost_offset_e) + OST_BLOCK;
-		}
+
+				// On the first alloc, reserve space for the string table
+				// size field.
+				if (ost_offset_e == 0)
+					oststr_ptr += 4;
+			}
 	}
 
-	// If this is a debug symbol and the include debug symbol flag (-g) is not
-	// set then do nothing
-	if ((type & 0xF0000000) && !gflag)
-	{
-		// Do nothing
-		return 0;
-	}
-
-	// Get symbol index in OST, if any (-1 if not found)
-	ostresult = OSTLookup(name);
-
-	// If the symbol is in the output symbol table and the bflag is set
-	// (don't remove multiply defined locals) and this is not an
-	// external/global symbol *** OR *** the symbol is not in the output
-	// symbol table then add it.
-	if (((ostresult != -1) && bflag && !(type & 0x01000000))
-		|| ((ostresult != -1) && gflag && (type & 0xF0000000))
-		|| (ostresult == -1))
-	{
-		if ((type & 0xF0000000) == 0x40000000)
-			PutLong(ost_ptr, 0x00000000);	// Zero string table offset for dbg line
-		else
-			PutLong(ost_ptr, (oststr_ptr - oststr));	// String table offset of symbol string
-
-		PutLong(ost_ptr + 4, type);
-		PutLong(ost_ptr + 8, value);
-		ost_ptr += 12;
-
-		// If the symbol type is anything but a debug line information
-		// symbol then write the symbol string to the string table
-		if ((type & 0xF0000000) != 0x40000000)
-		{
 			strcpy(oststr_ptr, name);		// Put symbol name in string table
-			*(oststr_ptr + slen) = '\0';	// Add null terminating character
-			oststr_ptr += (slen + 1);
+		oststr_ptr += slen;
+		oststr_ptr[-1] = '\0';				// Add null terminating character
 			PutLong(oststr_ptr, 0x00000000);	// Null terminating long
 			PutLong(oststr, (oststr_ptr - oststr));	// Update size of string table
 		}
 
-		if (vflag > 1)
-			printf("OSTAdd: (%s), type=$%08X, val=$%08lX\n", name, type, value);
+	ostresult = ost_index++;
 
-// is ost_index pointing one past?
-// does this return the same regardless of if its ++n or n++?
-// no. it returns the value of ost_index *before* it's incremented.
-		return ++ost_index;
-	}
+	ost[ostresult].s_idx = ost_offset_p;
+	ost[ostresult].s_type = type;
+	ost[ostresult].s_value = value;
 
-	return ostresult;
+	if (vflag > 1)
+		printf("OSTAdd: (%s), type=$%08X, val=$%08lX\n",
+			   slen ? name : "", type, value);
+
+	return ost_index;
 }
 
 
@@ -525,14 +495,11 @@ int OSTAdd(char * name, int type, long value)
 int OSTLookup(char * sym)
 {
 	int i;
-	int stro = 4;		// Offset in string table
 
 	for(i=0; i<ost_index; i++)
 	{
-		if (strcmp(oststr + stro, sym) == 0)
+		if (ost[i].s_idx && (strcmp(oststr + ost[i].s_idx, sym) == 0))
 			return i + 1;
-
-		stro += strlen(oststr + stro) + 1;
 	}
 
 	return -1;
@@ -671,11 +638,11 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 		// object file image
 		addr = GetLong(rptr);
 		rflg = GetLong(rptr + 4);
-		glblreloc = (rflg & 0x00000010 ? 1 : 0);// Set global relocation flag
-		absreloc  = (rflg & 0x00000040 ? 1 : 0); // Set absolute relocation flag
-		relreloc  = (rflg & 0x000000A0 ? 1 : 0); // Set relative relocation flag
-		wordreloc = (rflg & 0x00000002 ? 1 : 0); // Set word relocation flag
-		opreloc   = (rflg & 0x00000004 ? 1 : 0); // Set OP relocation flag
+		glblreloc = (rflg & BSDREL_GLOBAL ? 1 : 0);
+		absreloc  = (rflg & BSDREL_ABS ? 1 : 0);
+		relreloc  = (rflg & BSDREL_PCREL ? 1 : 0);
+		wordreloc = (rflg & BSDREL_WORD ? 1 : 0);
+		opreloc   = (rflg & BSDREL_OP ? 1 : 0);
 
 		// Additional processing required for global relocations
 		if (glblreloc)
@@ -684,12 +651,12 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 			// for it in the globals hash table to obtain information on that
 			// symbol. For the hash calculation to work correctly it must be
 			// placed in a 'clean' string before looking it up.
-			symidx = GetLong(symtab + ((rflg >> 8) * 12));
+			symidx = GetLong(symtab + (BSDREL_SYMIDX(rflg) * 12));
 			memset(sym, 0, SYMLEN);
 			strcpy(sym, symbols + symidx);
 			olddata = newdata = 0;   // Initialise old and new segment data
 			ssidx = OSTLookup(sym);
-			newdata = GetLong(ost + ((ssidx - 1) * 12) + 8);
+			newdata = ost[ssidx - 1].s_value;
 		}
 
 		// Obtain the existing long word (or word) segment data and flip words
@@ -709,32 +676,32 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 			olddata |= saveBits2; // Restore upper 3 bits of data addr
 		}
 
-		if (rflg & 0x01)
+		if (rflg & BSDREL_MOVEI)
 			olddata = _SWAPWORD(olddata);
 
 		// Process record dependant on segment it relates to; TEXT, DATA or
 		// BSS. Construct a new relocated segment long word based on the
 		// required segment base address, the segment data offset in the
 		// resulting COF file and the offsets from the incoming object file.
-		swcond = (rflg & 0xFFFFFF00);
+		swcond = (rflg & BSDREL_SEGMASK);
 
 		if (!glblreloc)
 		{
 			switch (swcond)
 			{
-			case 0x00000200:          // Absolute Value
+			case BSDREL_SEG_ABS:
 				break;
-			case 0x00000400:          // TEXT segment relocation record
+			case BSDREL_SEG_TEXT:
 				// SCPCD : the symbol point to a text segment, we should use the textoffset
 				newdata = tbase + textoffset + olddata;
 
 				break;
-			case 0x00000600:          // DATA segment relocation record
+			case BSDREL_SEG_DATA:
 				newdata = dbase + dataoffset
 					+ (olddata - ofile->o_header.tsize);
 
 				break;
-			case 0x00000800:          // BSS segment relocation record
+			case BSDREL_SEG_BSS:
 				newdata = bbase + bssoffset
 					+ (olddata - (ofile->o_header.tsize
 					+ ofile->o_header.dsize));
@@ -754,7 +721,7 @@ int RelocateSegment(struct OFILE * ofile, int flag)
 			// Flip the new long word segment data if the relocation record
 			// indicated a RISC MOVEI instruction and place the resulting data
 			// back in the COF segment
-			if (rflg & 0x01)
+			if (rflg & BSDREL_MOVEI)
 				newdata = _SWAPWORD(newdata);
 
 			if (wordreloc)
@@ -1076,10 +1043,8 @@ int WriteOutputFile(struct OHEADER * header)
 	int i, j;							// Iterators
 	char himage[0x168];					// Header image (COF = 0xA8)
 	uint32_t tsoff, dsoff, bsoff;		// Segment offset values
-	unsigned index, type, value;		// Symbol table index, type and value
 	short abstype;						// ABS symbol type
-	char symbol[14];					// Symbol record for ABS files
-	int slen;							// Symbol string length
+	char symbol[14];					// raw symbol record
 
 	symoffset = 0;						// Initialise symbol offset
 
@@ -1267,8 +1232,15 @@ int WriteOutputFile(struct OHEADER * header)
 		{
 			if (header->ssize)
 			{
-				if (fwrite(ost, (ost_ptr - ost), 1, fd) != 1)
+				for (i = 0; i < ost_index; i++)
+				{
+					PutLong(symbol,     ost[i].s_idx);
+					PutLong(symbol + 4, ost[i].s_type);
+					PutLong(symbol + 8, ost[i].s_value);
+
+					if (fwrite(symbol, 12, 1, fd) != 1)
 					goto werror;
+				}
 
 				if (fwrite(oststr, (oststr_ptr - oststr), 1, fd) != 1)
 					goto werror;
@@ -1288,32 +1260,16 @@ int WriteOutputFile(struct OHEADER * header)
 			{
 				memset(symbol, 0, 14);		// Initialise symbol record
 				abstype = 0;				// Initialise ABS symbol type
-				slen = 0;					// Initialise symbol string length
-				index = GetLong(ost + (i * 12));	// Get symbol index
-				type  = GetLong((ost + (i * 12)) + 4);	// Get symbol type
 
 				// Skip debug symbols
-				if (type & 0xF0000000)
+				if (ost[i].s_type & 0xF0000000)
 					continue;
 
-				// Get symbol value
-				value = GetLong((ost + (i * 12)) + 8);
-				slen = strlen(oststr + index);
-
 				// Get symbol string (maximum 8 chars)
-				if (slen > 8)
-				{
-					for(j=0; j<8; j++)
-						*(symbol + j) = *(oststr + index + j);
-				}
-				else
-				{
-					for(j=0; j<slen; j++)
-						*(symbol + j) = *(oststr + index + j);
-				}
+				strncpy(symbol, oststr + ost[i].s_idx, 8);
 
 				// Modify to ABS symbol type
-				switch (type)
+				switch (ost[i].s_type)
 				{
 				case 0x02000000: abstype = (short)ABST_DEFINED;                           break;
 				case 0x04000000: abstype = (short)ABST_DEFINED | ABST_TEXT;               break;
@@ -1323,13 +1279,13 @@ int WriteOutputFile(struct OHEADER * header)
 				case 0x08000000: abstype = (short)ABST_DEFINED | ABST_BSS;                break;
 				case 0x09000000: abstype = (short)ABST_DEFINED | ABST_GLOBAL | ABST_BSS;  break;
 				default:
-					printf("warning (WriteOutputFile): ABS, cannot determine symbol type ($%08X) [%s]\n", type, symbol);
+					printf("warning (WriteOutputFile): ABS, cannot determine symbol type ($%08X) [%s]\n", ost[i].s_type, symbol);
 //					type = 0;
 					break;
 				}
 
 				PutWord(symbol + 8, abstype);	// Write back new ABS type
-				PutLong(symbol + 10, value);	// Write back value
+				PutLong(symbol + 10, ost[i].s_value);	// Write back value
 
 				// Write symbol record
 				if (fwrite(symbol, 14, 1, fd) != 1)
@@ -1391,10 +1347,10 @@ int ShowSymbolLoadMap(struct OHEADER * header)
 		// Inner loop to process each record in the symbol table
 		for(i=0; i<(unsigned)ost_index; i++)
 		{
-			index  = GetLong(ost + (i * 12));		// Get symbol string index
-			type   = GetLong(ost + (i * 12) + 4);	// Get symbol type
-			value  = GetLong(ost + (i * 12) + 8);	// Get symbol value
-			symbol = oststr + index;				// Get symbol string
+			index  = ost[i].s_idx;					// Get symbol string index
+			type   = ost[i].s_type;					// Get symbol type
+			value  = ost[i].s_value;				// Get symbol value
+			symbol = index ? oststr + index : "";	// Get symbol string
 
 			// Display only three columns
 			if (c == 3)
@@ -1572,11 +1528,19 @@ struct OHEADER * MakeOutputObject()
 		dbase = dval;
 
 		if (!bval)
+		{
+			if (btype == -2)
+				// BSS follows TEXT
+				bbase = tval +  textsize;
+			else
 			// BSS follows DATA
 			bbase = dval + datasize;
+		}
 		else
+		{
 			// BSS is independent of DATA
 			bbase = bval;
+	}
 	}
 
 	// Inject segment end labels, for C compilers that expect this shite
@@ -1637,8 +1601,8 @@ struct OHEADER * MakeOutputObject()
 	header->tsize = textsize;			// TEXT segment size
 	header->dsize = datasize;			// DATA segment size
 	header->bsize = bsssize;			// BSS segment size
-	header->ssize = (ost_ptr - ost);	// Symbol table size
-	header->ostbase = ost;				// Output symbol table base address
+	header->ssize = ost_index * 12;		// Symbol table size
+	header->ostbase = NULL;				// Output symbol table base address
 
 	// For each object file, relocate its TEXT and DATA segments. OR the result
 	// into ret so all files get moved (and errors reported) before returning
@@ -2367,6 +2331,280 @@ int LoadObject(char * fname, int fd, char * ptr)
 	return AddToProcessingList(ptr, fname, nullStr, 0, tSize, dSize, bSize);
 }
 
+uint32_t SymTypeAlcToAout(uint32_t alcType)
+{
+	uint32_t type = T_UNDF;
+
+	// Symbol type mappings here are derived from comparing Alcyon and BSD
+	// object files generated by MADMAC using the "size" utility from jag_utils
+	// (https://github.com/cubanismo/jag_utils) and the old PC/DOS Atari SDK.
+	//
+	// In BSD/a.out:
+	//
+	// 1)   text | global text == text relocatable symbol in this file
+	// 2)   data | global data == data relocatable symbol in this file
+	// 3)   BSS  | global BSS  == bss relocatable symbol in this file
+	// 4)   ABS  | global ABS  == non-relocatable symbol in this file
+	// 4) <none> | global <none> == undefined global symbol (extern)
+	//
+	// In DRI/Alcyon:
+	//
+	// 1) Everything seems to be marked defined.
+	// 2) There is an explicit "external" bit. It appears to be mutually
+	//    exclusive with the "global" bit, at least in MADMAC's output.
+	// 3) There are separate "equated" and "equated reg" type bits that
+	//    both represent ABS/non-relocatable values.
+	if ((alcType & ALCSYM_EQUATED) ||
+		(alcType & ALCSYM_EQUATED_REG))
+		type |= T_ABS;
+	else if (alcType & ALCSYM_TEXT)
+		type |= T_TEXT;
+	else if (alcType & ALCSYM_DATA)
+		type |= T_DATA;
+	else if (alcType & ALCSYM_BSS)
+		type |= T_BSS;
+
+	if ((alcType & ALCSYM_GLOBAL) ||
+		(alcType & ALCSYM_EXTERN))
+		type |= T_GLBL;
+
+	return type;
+}
+
+int LoadAlcyon(char * fname, int fd)
+{
+	char *ptr, *sptr, *aout, *saout, *traout, *strPtr;
+    char *trelptr, *drelptr, *relend;
+	struct ALCHEADER hdr;
+	struct ALCSYM *alcSyms;
+	long size = FileSize(fd);
+	size_t symStrLen;
+	size_t strOff;
+	uint32_t numSyms, numTRel, numDRel, i, j;
+
+	// Validate the file is at least large enough to contain a valid header
+	if (size < 0x1c)
+	{
+		printf("Alcyon object file %s too small to contain header\n", fname);
+		return 1;
+	}
+
+	// Allocate memory for file data
+	ptr = malloc(size);
+
+	if (ptr == NULL)
+	{
+		printf("Out of memory while processing %s\n", fname);
+		close(fd);
+		return 1;
+	}
+
+	// Read in file data
+	if (read(fd, ptr, size) != size)
+	{
+		printf("File read error on %s\n", fname);
+		close(fd);
+		free(ptr);
+		return 1;
+	}
+
+	close(fd);
+
+	hdr.magic = GetWord(ptr);
+	hdr.tsize = GetLong(ptr + 2);
+	hdr.dsize = GetLong(ptr + 6);
+	hdr.bsize = GetLong(ptr + 10);
+	hdr.ssize = GetLong(ptr + 14);
+
+	// Construct a BSD-style/aout object file in memory from the Alcyon data
+	numSyms = hdr.ssize / 14;
+
+	alcSyms = calloc(numSyms, sizeof(*alcSyms));
+	if (alcSyms == NULL)
+	{
+		printf("Out of memory while processing %s\n", fname);
+		free(ptr);
+		return 1;
+	}
+
+	sptr = ptr + 0x1c + hdr.tsize + hdr.dsize;
+	trelptr = sptr + hdr.ssize;
+	drelptr = trelptr + hdr.tsize;
+	relend = drelptr + hdr.dsize;
+
+	if (relend - ptr > size)
+	{
+		printf("Alcyon object file %s truncated: Header wants %ldB, file is %ldB\n",
+			   fname, relend - ptr, size);
+		return 1;
+	}
+
+	for (i = 0, symStrLen = 0; i < numSyms; i++)
+	{
+		memcpy(alcSyms[i].name, sptr, 8);
+		alcSyms[i].type = GetWord(sptr + 8);
+		alcSyms[i].value = GetLong(sptr + 10);
+		symStrLen += strnlen((char *)alcSyms[i].name, 8) + 1;
+		sptr += 14;
+	}
+
+	for (i = 0, numTRel = 0; trelptr + i < drelptr; i += 2)
+	{
+		uint16_t rel = GetWord(trelptr + i);
+		if ((rel != ALCREL_ABS) &&
+			(rel != ALCREL_LONG))
+			numTRel++;
+	}
+
+	for (i = 0, numDRel = 0; drelptr + i < relend; i += 2)
+	{
+		uint16_t rel = GetWord(drelptr + i);
+		if ((rel != ALCREL_ABS) &&
+			(rel != ALCREL_LONG))
+			numDRel++;
+	}
+
+	aout = malloc(32 + /* header */
+				  hdr.tsize +
+				  hdr.dsize +
+				  numTRel * 8 + /* Text section relocations */
+				  numDRel * 8 + /* Data section relocations */
+				  numSyms * 12 + /* symbol table */
+				  4 + symStrLen + /* string table size + strings */
+				  4 /* NULL-terminator for file */);
+	if (aout == NULL)
+	{
+		printf("Out of memory while processing %s\n", fname);
+		free(alcSyms);
+		free(ptr);
+		return 1;
+	}
+
+	// Construct the BSD/a.out header.
+	PutLong(aout, 0x00000107);				// Magic number
+
+	PutLong(aout+4, hdr.tsize);				// Text size
+	PutLong(aout+8, hdr.dsize);				// Data size
+	PutLong(aout+12, hdr.bsize);			// BSS size
+	PutLong(aout+16, numSyms * 12);			// Symbol table size
+	PutLong(aout+20, 0L);					// Entry point
+
+	PutLong(aout+24, numTRel * 8);			// TEXT relocation size
+	PutLong(aout+28, numDRel * 8);			// DATA relocation size
+
+	// Copy the raw text and data segments
+	memcpy(aout + 32, ptr + 0x1c, hdr.tsize);
+	memcpy(aout + 32 + hdr.tsize, ptr + 0x1c + hdr.tsize, hdr.dsize);
+
+	// Set traout to the start of the relocation tables
+	traout = aout + 32 + hdr.tsize + hdr.dsize;
+
+	// Set saout to symbol table location
+	saout = traout + numTRel * 8 + numDRel * 8 ;
+
+	// Convert the text and data relocations to a.out format
+	for (i = 0; trelptr + i < relend; i += 2)
+	{
+		uint16_t rel = GetWord(trelptr + i);
+		uint16_t relFlags = rel & 7;
+		uint32_t aoutflags = BSDREL_ABS;
+		uint32_t valoffset = 0;
+		char *const valaddr = aout + 32 + i;
+		const uint32_t reladdr = (trelptr + i >= drelptr) ? i - hdr.tsize : i;
+
+		if (relFlags == ALCREL_LONG)
+		{
+			i += 2;
+			rel = GetWord(trelptr + i);
+			relFlags = rel & 7;
+		}
+		else
+		{
+			aoutflags |= BSDREL_WORD;
+		}
+
+		if (relFlags == ALCREL_ABS)
+			continue;
+
+		switch (relFlags) {
+		case ALCREL_EXTPCREL:
+            aoutflags &= ~BSDREL_ABS;
+			aoutflags |= BSDREL_PCREL;
+            /* Fall through */
+		case ALCREL_EXTABS:
+			aoutflags |= BSDREL_GLOBAL;
+            aoutflags |= (ALCREL_SYMIDX(rel) << BSDREL_SYMIDX_SHIFT);
+			break;
+		case ALCREL_TEXT:
+			aoutflags |= BSDREL_SEG_TEXT;
+			break;
+		case ALCREL_DATA:
+			aoutflags |= BSDREL_SEG_DATA;
+			valoffset = hdr.tsize;
+			break;
+		case ALCREL_BSS:
+			aoutflags |= BSDREL_SEG_BSS;
+			valoffset = hdr.tsize + hdr.dsize;
+			break;
+
+		default:
+			printf("Invalid Alcyon relocation flags: 0x%02x\n", relFlags);
+			free(alcSyms);
+			free(ptr);
+			free(aout);
+			return 1;
+		}
+
+		if (valoffset != 0)
+		{
+			if (aoutflags & BSDREL_WORD)
+			{
+				valoffset += GetWord(valaddr);
+				PutWord(valaddr, (uint16_t)valoffset);
+			}
+			else
+			{
+				valoffset += GetLong(valaddr);
+				PutLong(valaddr, valoffset);
+			}
+		}
+
+		PutLong(traout,		reladdr);
+		PutLong(traout+4,	aoutflags);
+		traout += 8;
+	}
+
+	// Done with the Alcyon data.
+	free(ptr);
+	ptr = NULL;
+	sptr = NULL;
+
+	// Set strPtr to string table location and write string table size
+	strPtr = saout + numSyms * 12;
+	PutLong(strPtr, 4 + symStrLen);
+
+	for (i = 0, strOff = 4; i < numSyms; i++)
+	{
+		PutLong(saout,    strOff);           // String offset of symbol
+		PutLong(saout+4,  SymTypeAlcToAout(alcSyms[i].type)); // Symbol type
+		PutLong(saout+8,  alcSyms[i].value); // Symbol value
+		saout += 12;
+
+		for (j = 0; j < 8 && alcSyms[i].name[j] != '\0'; j++)
+			*(strPtr + strOff + j) = alcSyms[i].name[j];
+		strOff += j;                         // Step past string
+		*(strPtr + strOff) = '\0';           // Terminate symbol string
+		strOff++;                            // Step past termination
+	}
+
+	PutLong(strPtr + strOff, 0L);          // Terminating long for object file
+
+	// Done with the Alcyon symbol table.
+	free(alcSyms);
+
+	// Now add this image to the list of pending ofiles (plist)
+	return AddToProcessingList(aout, fname, nullStr, 0, hdr.tsize, hdr.dsize, hdr.bsize);
+}
 
 //
 // What it says on the tin: check for a .o suffix on the passed in string
@@ -2529,6 +2767,13 @@ int ProcessFiles(void)
 			{
 				// Process input object file
 				if (LoadObject(name[i], handle[i], 0L))
+					return 1;
+			}
+			// Look for DRI Alcyon C (and old MAC) object files
+			else if (GetWord(magic) == 0x601A)
+			{
+				// Process Alcyon object file.
+				if (LoadAlcyon(name[i], handle[i]))
 					return 1;
 			}
 			// Otherwise, look for an object archive file
@@ -2809,9 +3054,33 @@ int doargs(int argc, char * argv[])
 				}
 				else if ((*argv[i] == 'x' || *argv[i] == 'X'))
 				{
+					switch (argv[i][1])
+					{
+						case 'd': case 'D': case '\0':
 					btype = -3;			// BSS follows DATA
+							break;
+
+						case 't': case 'T':
+							btype = -2;	// BSS follows TEXT
+							if (btype == dtype)
+							{
+								printf("Error in bss-segment address: data-segment also follows text\n");
+								return 1;
+							}
+							break;
+
+						default:
+							btype = -4;	// Error
+							break;
+					}
 				}
 				else if (GetHexValue(argv[i], &bval))
+				{
+					btype = -4;
+					return 1;
+				}
+
+				if (btype == -4)
 				{
 					printf("Error in bss-segment address: %s is not 'r', 'x[td]', or an address.", argv[i]);
 					return 1;
@@ -2858,12 +3127,8 @@ int doargs(int argc, char * argv[])
 				break;
 			case 'g':
 			case 'G':					// Output source level debugging
-				printf("\'g\' flag not currently implemented\n");
-				gflag = 0;
-				/*
 				if (gflag) warn('g', 1);
 				gflag = 1;
-				*/
 				break;
 			case 'i':
 			case 'I':					// Include binary file
@@ -3070,7 +3335,10 @@ void ShowHelp(void)
 	printf("   -a <text> <data> <bss>  output absolute file (default: ABS)\n");
 	printf("                           hex value: segment address\n");
 	printf("                           r: relocatable segment\n");
-	printf("                           x: contiguous segment\n");
+	printf("                           x[dt]: contiguous segment\n");
+	printf("                           for contiguous bss:\n");
+	printf("                             d(default): follows data segment\n");
+	printf("                             t:          follows text segment\n");
 	printf("   -b                      don't remove multiply defined local labels\n");
 	printf("   -c <fname>              add contents of <fname> to command line\n");
 	printf("   -d                      wait for key after link\n");
